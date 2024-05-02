@@ -293,7 +293,7 @@ class SimplePluginGait(BiomechanicalModel):
         )
         self["RHumerus"].add_marker(Marker("RSHO", is_technical=self.include_upper_body, is_anatomical=True))
         self["RHumerus"].add_marker(Marker("RELB", is_technical=self.include_upper_body, is_anatomical=True))
-        self["RHumerus"].add_marker(Marker("RHUM", is_technical=self.include_upper_body, is_anatomical=False))
+        self["RHumerus"].add_marker(Marker("RUPA", is_technical=self.include_upper_body, is_anatomical=False))
 
         self["RRadius"] = Segment(
             parent_name="RHumerus",
@@ -404,7 +404,7 @@ class SimplePluginGait(BiomechanicalModel):
         self["LHumerus"].add_marker(Marker("LSHO", is_technical=self.include_upper_body, is_anatomical=True))
         self["LHumerus"].add_marker(Marker("LELB", is_technical=self.include_upper_body, is_anatomical=True))
         # TODO: Add ELBM to define the axis
-        self["LHumerus"].add_marker(Marker("LHUM", is_technical=self.include_upper_body, is_anatomical=False))
+        self["LHumerus"].add_marker(Marker("LUPA", is_technical=self.include_upper_body, is_anatomical=False))
 
         self["LRadius"] = Segment(
             parent_name="LHumerus",
@@ -506,11 +506,11 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["RFemur"].add_marker(Marker("RTROC", is_technical=True, is_anatomical=True))
+        #self["RFemur"].add_marker(Marker("RTROC", is_technical=True, is_anatomical=True))
         self["RFemur"].add_marker(Marker("RKNE", is_technical=True, is_anatomical=True))
-        self["RFemur"].add_marker(Marker("RKNM", is_technical=False, is_anatomical=True))
+        #self["RFemur"].add_marker(Marker("RKNM", is_technical=False, is_anatomical=True))
         self["RFemur"].add_marker(Marker("RTHI", is_technical=True, is_anatomical=False))
-        self["RFemur"].add_marker(Marker("RTHID", is_technical=True, is_anatomical=False))
+        #self["RFemur"].add_marker(Marker("RTHID", is_technical=True, is_anatomical=False))
 
         self["RTibia"] = Segment(
             parent_name="RFemur",
@@ -544,11 +544,11 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["RTibia"].add_marker(Marker("RANKM", is_technical=False, is_anatomical=True))
+        #self["RTibia"].add_marker(Marker("RANKM", is_technical=False, is_anatomical=True))
         self["RTibia"].add_marker(Marker("RANK", is_technical=True, is_anatomical=True))
-        self["RTibia"].add_marker(Marker("RTIBP", is_technical=True, is_anatomical=False))
+        #self["RTibia"].add_marker(Marker("RTIBP", is_technical=True, is_anatomical=False))
         self["RTibia"].add_marker(Marker("RTIB", is_technical=True, is_anatomical=False))
-        self["RTibia"].add_marker(Marker("RTIBD", is_technical=True, is_anatomical=False))
+        #self["RTibia"].add_marker(Marker("RTIBD", is_technical=True, is_anatomical=False))
 
         self["RFoot"] = Segment(
             parent_name="RTibia",
@@ -559,7 +559,7 @@ class SimplePluginGait(BiomechanicalModel):
                 second_axis=Axis(Axis.Name.Z, start="RHEE", end="RTOE"),
                 axis_to_keep=Axis.Name.Z,
             ),
-            mesh=Mesh(("RTOE", "R5MH", "RHEE", "RTOE")),
+            mesh=Mesh(("RTOE", "RANK", "RHEE", "RTOE")), # "R5MH"
             inertia_parameters=InertiaParameters(
                 mass=lambda m, bio: 0.0145 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
@@ -574,7 +574,7 @@ class SimplePluginGait(BiomechanicalModel):
             ),
         )
         self["RFoot"].add_marker(Marker("RTOE", is_technical=True, is_anatomical=True))
-        self["RFoot"].add_marker(Marker("R5MH", is_technical=True, is_anatomical=True))
+        self["RFoot"].add_marker(Marker("RANK", is_technical=True, is_anatomical=True))
         self["RFoot"].add_marker(Marker("RHEE", is_technical=True, is_anatomical=True))
 
         self["LFemur"] = Segment(
@@ -609,11 +609,11 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["LFemur"].add_marker(Marker("LTROC", is_technical=True, is_anatomical=True))
+        #self["LFemur"].add_marker(Marker("LTROC", is_technical=True, is_anatomical=True))
         self["LFemur"].add_marker(Marker("LKNE", is_technical=True, is_anatomical=True))
-        self["LFemur"].add_marker(Marker("LKNM", is_technical=False, is_anatomical=True))
+        #self["LFemur"].add_marker(Marker("LKNM", is_technical=False, is_anatomical=True))
         self["LFemur"].add_marker(Marker("LTHI", is_technical=True, is_anatomical=False))
-        self["LFemur"].add_marker(Marker("LTHID", is_technical=True, is_anatomical=False))
+        #self["LFemur"].add_marker(Marker("LTHID", is_technical=True, is_anatomical=False))
 
         self["LTibia"] = Segment(
             parent_name="LFemur",
@@ -647,11 +647,11 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["LTibia"].add_marker(Marker("LANKM", is_technical=False, is_anatomical=True))
+        #self["LTibia"].add_marker(Marker("LANKM", is_technical=False, is_anatomical=True))
         self["LTibia"].add_marker(Marker("LANK", is_technical=True, is_anatomical=True))
-        self["LTibia"].add_marker(Marker("LTIBP", is_technical=True, is_anatomical=False))
+        #self["LTibia"].add_marker(Marker("LTIBP", is_technical=True, is_anatomical=False))
         self["LTibia"].add_marker(Marker("LTIB", is_technical=True, is_anatomical=False))
-        self["LTibia"].add_marker(Marker("LTIBD", is_technical=True, is_anatomical=False))
+        #self["LTibia"].add_marker(Marker("LTIBD", is_technical=True, is_anatomical=False))
 
         self["LFoot"] = Segment(
             parent_name="LTibia",
@@ -662,7 +662,7 @@ class SimplePluginGait(BiomechanicalModel):
                 second_axis=Axis(Axis.Name.Z, start="LHEE", end="LTOE"),
                 axis_to_keep=Axis.Name.Z,
             ),
-            mesh=Mesh(("LTOE", "L5MH", "LHEE", "LTOE")),
+            mesh=Mesh(("LTOE", "LANK", "LHEE", "LTOE")),
             inertia_parameters=InertiaParameters(
                 mass=lambda m, bio: 0.0145 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
@@ -677,7 +677,7 @@ class SimplePluginGait(BiomechanicalModel):
             ),
         )
         self["LFoot"].add_marker(Marker("LTOE", is_technical=True, is_anatomical=True))
-        self["LFoot"].add_marker(Marker("L5MH", is_technical=True, is_anatomical=True))
+        self["LFoot"].add_marker(Marker("LANK", is_technical=True, is_anatomical=True))
         self["LFoot"].add_marker(Marker("LHEE", is_technical=True, is_anatomical=True))
 
     def _lumbar_5(self, m, bio):
@@ -891,10 +891,11 @@ class SimplePluginGait(BiomechanicalModel):
         side
             If the markers are from the right ("R") or left ("L") side
         """
-        if side == "R":
-            return Axis(Axis.Name.Y, start=f"{side}KNE", end=f"{side}KNM")
-        elif side == "L":
-            return Axis(Axis.Name.Y, start=f"{side}KNM", end=f"{side}KNE")
+
+        if side == "L":
+            return Axis(Axis.Name.Y, start=f"{side}KJC", end=f"{side}KNE")
+        elif side == "R":
+            return Axis(Axis.Name.Y, start=f"{side}KNE", end=f"{side}KJC")
         else:
             raise ValueError("side should be 'R' or 'L'")
 
@@ -911,7 +912,10 @@ class SimplePluginGait(BiomechanicalModel):
         side
             If the markers are from the right ("R") or left ("L") side
         """
-        return (m[f"{side}KNM"] + m[f"{side}KNE"]) / 2
+        if (f"{side}KNM" in m.keys()):
+            return (m[f"{side}KNM"] + m[f"{side}KNE"]) / 2
+        else:
+            return m[f"{side}KJC"]
 
     def _ankle_joint_center(self, m, bio: BiomechanicalModelReal, side) -> np.ndarray:
         """
@@ -926,8 +930,10 @@ class SimplePluginGait(BiomechanicalModel):
         side
             If the markers are from the right ("R") or left ("L") side
         """
-
-        return (m[f"{side}ANK"] + m[f"{side}ANKM"]) / 2
+        if (f"{side}ANKM" in m.keys()):
+            return (m[f"{side}ANK"] + m[f"{side}ANKM"]) / 2
+        else:
+            return m[f"{side}HJC"]
 
     @property
     def dof_index(self) -> dict[str, tuple[int, ...]]:

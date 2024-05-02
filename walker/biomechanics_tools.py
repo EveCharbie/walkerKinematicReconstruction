@@ -18,7 +18,7 @@ def suffix_to_all(values: tuple[str, ...] | list[str, ...], suffix: str) -> tupl
 
 class BiomechanicsTools:
     def __init__(self, body_mass: float, include_upper_body: bool = True):
-        self.generic_model = SimplePluginGait(body_mass, include_upper_body=False)
+        self.generic_model = SimplePluginGait(body_mass, include_upper_body=include_upper_body)
         self.model = None
 
         self.is_kinematic_reconstructed: bool = False
@@ -163,8 +163,8 @@ class BiomechanicsTools:
 
         first_frame_c3d = self.c3d["header"]["points"]["first_frame"]
         last_frame_c3d = self.c3d["header"]["points"]["last_frame"]
-        n_frames_before = (frames.start - first_frame_c3d) if frames.start is not None else 0
-        n_frames_after = (last_frame_c3d - frames.stop + 1) if frames.stop is not None else 0
+        n_frames_before =0# (frames.start - first_frame_c3d) if frames.start is not None else 0
+        n_frames_after =0# (last_frame_c3d - frames.stop + 1) if frames.stop is not None else 0
         n_frames_total = last_frame_c3d - first_frame_c3d + 1
         self.t, self.q, self.qdot, self.qddot = biorbd.extended_kalman_filter(self.model, self.c3d_path, frames=frames)
 
@@ -287,7 +287,7 @@ class BiomechanicsTools:
         if not self.is_kinematic_reconstructed:
             raise RuntimeError("The kinematics must be reconstructed before showing the reconstruction")
 
-        viz = bioviz.Viz(loaded_model=self.model)
+        viz = bioviz.Viz(loaded_model=self)
         viz.load_movement(self.q)
         viz.load_experimental_markers(self.c3d_path)
         viz.radio_c3d_editor_model.click()
@@ -485,7 +485,7 @@ class BiomechanicsTools:
             data[:3, point_names.index(f"{dof}Power"), :] = self.tau[idx, :] * self.qdot[idx, :]
         c3d["data"]["points"] = data
 
-        self.bioviz_window = bioviz.Viz(loaded_model=self.model)
+        self.bioviz_window = bioviz.Viz(loaded_model=self)
         self.bioviz_window.load_movement(self.q)
         self.bioviz_window.load_experimental_markers(self.c3d_path)
         self.bioviz_window.radio_c3d_editor_model.click()
