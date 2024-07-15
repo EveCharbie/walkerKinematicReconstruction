@@ -4,14 +4,12 @@ import os.path
 import biorbd
 from biorbd.model_creation import C3dData
 import bioviz
-import pyorerun as prr
 import ezc3d
 import numpy as np
 from scipy import signal
-import matplotlib.pyplot as plt
 
-from walker.misc import differentiate, to_rotation_matrix, to_euler
-from walker.plugin_gait import SimplePluginGait
+from .misc import differentiate, to_rotation_matrix, to_euler
+from .plugin_gait import SimplePluginGait
 
 
 def suffix_to_all(values: tuple[str, ...] | list[str, ...], suffix: str) -> tuple[str, ...]:
@@ -20,10 +18,10 @@ def suffix_to_all(values: tuple[str, ...] | list[str, ...], suffix: str) -> tupl
 
 class BiomechanicsTools:
     def __init__(self, body_mass: float, include_upper_body: bool = True):
-        self.generic_model = SimplePluginGait(body_mass, include_upper_body=include_upper_body)
+        self.generic_model = SimplePluginGait(body_mass, include_upper_body=True)
         self.model = None
 
-        self.is_kinematic_reconstructed: bool = True
+        self.is_kinematic_reconstructed: bool = False
         self.is_inverse_dynamic_performed: bool = False
         self.c3d_path: str | None = None
         self.c3d: ezc3d.c3d | None = None
@@ -33,7 +31,6 @@ class BiomechanicsTools:
         self.qddot: np.ndarray = np.ndarray(())
         self.tau: np.ndarray = np.ndarray(())
         self.center_of_mass = np.ndarray(())
-        self.angular_momentum: np.ndarray = np.ndarray(())
 
         self.events = None
         self.bioviz_window: bioviz.Viz | None = None
@@ -48,6 +45,18 @@ class BiomechanicsTools:
 
         self.com = np.array([self.model.CoM(q).to_array() for q in self.q.T]).T
         return self.com
+
+    def forcedatafilter(self, data, order, sampling_rate, cutoff_freq):
+        # Normaliser la fréquence de coupure par rapport à la fréquence de Nyquist
+        nyquist_rate = sampling_rate / 2.0
+        normalized_cutoff = cutoff_freq / nyquist_rate
+
+        # Concevoir le filtre Butterworth
+        b, a = signal.butter(order, normalized_cutoff, btype='low', analog=False)
+
+        # Appliquer le filtre aux données
+        filtered_x = signal.filtfilt(b, a, data)
+        return filtered_x
 
     def personalize_model(self, static_trial: str, model_path: str = "temporary.bioMod"):
         """
@@ -75,14 +84,13 @@ class BiomechanicsTools:
         compute_automatic_events
             If the automatic event finding algorithm should be used. Otherwise, the events in the c3d file are used
         """
-        self.process_kinematics(trial, visualize=True)
-        self.inverse_dynamics()  # TODO ADD force platform
-        self.calculate_angular_momentum()
+        self.process_kinematics(trial)
+        self.inverse_dynamics(trial)
 
         # Write the c3d as if it was the plug in gate output
         path = os.path.dirname(trial)
         file_name = os.path.splitext(os.path.basename(trial))[0]
-        self.to_c3d(f"{path}/{file_name}_processed.c3d", compute_automatic_events=compute_automatic_events)
+        self.to_c3d(f"{path}/{file_name}_processed2.c3d", compute_automatic_events=compute_automatic_events)
 
     def process_kinematics(self, trial: str, visualize: bool = False):
         """
@@ -118,7 +126,7 @@ class BiomechanicsTools:
         self.c3d_path = trial
         self.c3d = ezc3d.c3d(self.c3d_path, extract_forceplat_data=True)
 
-    def _select_frames_to_reconstruct(self, acceptance_threshold: float = 1.0) -> slice:
+    def _select_frames_to_reconstruct(self, acceptance_threshold: float = 0.7) -> slice:
         """
         Select the first and last frame where the percentage threshold of visible markers is satisfied
 
@@ -167,16 +175,10 @@ class BiomechanicsTools:
 
         first_frame_c3d = self.c3d["header"]["points"]["first_frame"]
         last_frame_c3d = self.c3d["header"]["points"]["last_frame"]
-        n_frames_before =0# (frames.start - first_frame_c3d) if frames.start is not None else 0
-        n_frames_after =0# (last_frame_c3d - frames.stop + 1) if frames.stop is not None else 0
+        n_frames_before = (frames.start - first_frame_c3d) if frames.start is not None else 0
+        n_frames_after = (last_frame_c3d - frames.stop + 1) if frames.stop is not None else 0
         n_frames_total = last_frame_c3d - first_frame_c3d + 1
         self.t, self.q, self.qdot, self.qddot = biorbd.extended_kalman_filter(self.model, self.c3d_path, frames=frames)
-        # todo: calculate error biorbd.forward
-        # marker_names = tuple(n.to_string() for n in self.model.technicalMarkerNames())
-        # for q in self.q:
-        #     markers = self.model.markers(q)
-        #     for i, m in enumerate(self.model.technicalMarkerNames):
-        #         self.model.ma(self.q[0], i).to_array()
 
         # Align the data with the c3d
         n_q = self.q.shape[0]
@@ -297,10 +299,13 @@ class BiomechanicsTools:
         if not self.is_kinematic_reconstructed:
             raise RuntimeError("The kinematics must be reconstructed before showing the reconstruction")
 
-        animation = prr.LiveModelAnimation("temporary.bioMod")
-        animation.rerun()
+        viz = bioviz.Viz(loaded_model=self.model)
+        viz.load_movement(self.q)
+        viz.load_experimental_markers(self.c3d_path)
+        viz.radio_c3d_editor_model.click()
+        viz.exec()
 
-    def inverse_dynamics(self) -> np.ndarray:
+    def inverse_dynamics(self, trial) -> np.ndarray:
         """
         Performs the inverse dynamics of a previously reconstructed kinematics
 
@@ -311,7 +316,45 @@ class BiomechanicsTools:
         if not self.is_kinematic_reconstructed:
             raise RuntimeError("The kinematics must be reconstructed before performing the inverse dynamics")
 
-        # TODO Compute if norm(external_force) < threshold, then nan
+        force_data = self.c3d['data']['platform']
+        points_data = self.c3d['data']['points'][:3, :, :]
+        nbframeMks = points_data.shape[2]
+        nbsegment = self.model.nbSegment()
+
+        self.externalForce = np.zeros((9, nbsegment, nbframeMks))
+
+        components = {
+            'force': slice(0, 3),
+            'moment': slice(3, 6),
+            'center_of_pressure': slice(6, 9),
+        }
+
+        Name = ['RFoot', 'LFoot']
+
+        for i, platform_data in enumerate(force_data):
+            pos = self.model.getBodyBiorbdId(Name[i])
+            for component, sl in components.items():
+                for ii in range(3):
+                    data = platform_data[component][:, :]
+                    filtered_x = self.forcedatafilter(data[ii, :], 3, 2000, 10)
+                    if sl == 1:
+                        self.externalForce[sl, pos, :] = filtered_x[::20]
+                    else:
+                        self.externalForce[sl, pos, :] = filtered_x[::20]/1000
+
+        # Suppose you have already defined external_force and threshold
+        threshold = 1  # Adjust this threshold value as needed
+
+        # Loop over segments and frames
+        for jj in range(nbsegment):
+            for ii in range(nbframeMks):
+                # Calculate the norm of the force vector
+                force_norm = np.linalg.norm(self.externalForce[0:3, jj, ii])
+                # Check the condition
+                if force_norm < threshold:
+                    # Set NaN to the entire column if the condition is true
+                    self.externalForce[:, jj, ii] = np.nan
+
         self.tau = np.array(
             [
                 self.model.InverseDynamics(q, qdot, qddot).to_array()
@@ -320,28 +363,10 @@ class BiomechanicsTools:
         ).T
 
         self.is_inverse_dynamic_performed = True
+
+        #scipy.io.savemat(f"{path}/{file_name}_processedDyn.mat", self.tau)
+
         return self.tau
-    def calculate_angular_momentum(self) -> np.ndarray:
-        """
-        Calculate the angular momentum of a previously reconstructed kinematics
-
-        Returns
-        -------
-        Stores and return de angular momentum at CoM
-        """
-        if not self.is_kinematic_reconstructed:
-            raise RuntimeError("The kinematics must be reconstructed before performing the inverse dynamics")
-
-        # TODO Compute if norm(external_force) < threshold, then nan
-        self.sigma = np.array(
-            [
-                self.model.angularMomentum(q, qdot).to_array()
-                for q, qdot in zip(self.q.T, self.qdot.T)
-            ]
-        ).T
-
-        return self.sigma
-
 
     def find_feet_events(self) -> tuple[int, tuple[str, ...], tuple[str, ...], np.ndarray]:
         """
@@ -513,7 +538,6 @@ class BiomechanicsTools:
             data[:3, point_names.index(f"{dof}Power"), :] = self.tau[idx, :] * self.qdot[idx, :]
         c3d["data"]["points"] = data
 
-
         self.bioviz_window = bioviz.Viz(loaded_model=self.model)
         self.bioviz_window.load_movement(self.q)
         self.bioviz_window.load_experimental_markers(self.c3d_path)
@@ -558,3 +582,4 @@ class BiomechanicsTools:
 
         # Write the data
         c3d.write(save_path)
+
