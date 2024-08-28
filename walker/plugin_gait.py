@@ -11,6 +11,7 @@ from biorbd.model_creation import (
     Rotations,
 )
 import numpy as np
+import biorbd
 
 
 def chord_function(offset, known_center_of_rotation, center_of_rotation_marker, plane_marker, direction: int = 1):
@@ -163,8 +164,11 @@ class SimplePluginGait(BiomechanicalModel):
         # Femur: verified
         # Knee: Used mid-point of 'KNM' and 'KNE' as KJC
         # Ankle: As for knee, we have access to a much easier medial marker (ANKM), so it was used instead
+        self["Ground"] = Segment(
+        )
 
         self["Pelvis"] = Segment(
+            parent_name="Ground",
             translations=Translations.XYZ,
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -175,11 +179,11 @@ class SimplePluginGait(BiomechanicalModel):
             ),
             mesh=Mesh(("LPSIS", "RPSIS", "RASIS", "LASIS", "LPSIS")),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.142 * self.body_mass,
+                mass=lambda m, bio: 0.145 * self.body_mass,
                 center_of_mass=self._pelvis_center_of_mass,
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.142 * self.body_mass,
-                    coef=(0.31, 0.31, 0.31),
+                    mass=0.145 * self.body_mass,
+                    coef=(0.31, 0.31, 0.3),
                     start=self._pelvis_joint_center(m, bio),
                     end=self._pelvis_center_of_mass(m, bio),
                 ),
@@ -214,7 +218,7 @@ class SimplePluginGait(BiomechanicalModel):
                 center_of_mass=self._thorax_center_of_mass,
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
                     mass=0.355 * self.body_mass,
-                    coef=(0.31, 0.31, 0.31),
+                    coef=(0.4, 0.5, 0.25),
                     start=m["C7"],
                     end=self._lumbar_5(m, bio),
                 ),
@@ -240,13 +244,13 @@ class SimplePluginGait(BiomechanicalModel):
             ),
             mesh=Mesh(("OCC", "RTEMP", "SEL", "LTEMP", "OCC")),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.081 * self.body_mass,
+                mass=lambda m, bio: 0.082 * self.body_mass,
                 center_of_mass=self._head_center_of_mass,
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.081 * self.body_mass,
-                    coef=(0.495, 0.495, 0.495),
-                    start=self._head_center_of_mass(m, bio),
-                    end=m["C7"][:3, :],
+                    mass=0.082 * self.body_mass,
+                    coef=(0.3, 0.3, 0.3),
+                    start=m["HV"],
+                    end=m["C7"],
                 ),
             ),
         )
@@ -279,13 +283,13 @@ class SimplePluginGait(BiomechanicalModel):
                 )
             ),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.028 * self.body_mass,
+                mass=lambda m, bio: 0.0271 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
-                    0.564, start=self._humerus_joint_center(m, bio, "R"), end=self._elbow_joint_center(m, bio, "R")
+                    0.5754, start=self._humerus_joint_center(m, bio, "R"), end=self._elbow_joint_center(m, bio, "R")
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.028 * self.body_mass,
-                    coef=(0.322, 0.322, 0),
+                    mass=0.0271 * self.body_mass,
+                    coef=(0.33, 0.33, 0.20),
                     start=self._humerus_joint_center(m, bio, "R"),
                     end=self._elbow_joint_center(m, bio, "R"),
                 ),
@@ -319,13 +323,13 @@ class SimplePluginGait(BiomechanicalModel):
                 )
             ),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.016 * self.body_mass,
+                mass=lambda m, bio: 0.0162 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
                     0.57, start=self._elbow_joint_center(m, bio, "R"), end=self._wrist_joint_center(m, bio, "R")
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.016 * self.body_mass,
-                    coef=(0.303, 0.303, 0),
+                    mass=0.0162 * self.body_mass,
+                    coef=(0.28,0.28,0.16),
                     start=self._elbow_joint_center(m, bio, "R"),
                     end=self._wrist_joint_center(m, bio, "R"),
                 ),
@@ -351,13 +355,13 @@ class SimplePluginGait(BiomechanicalModel):
             inertia_parameters=InertiaParameters(
                 mass=lambda m, bio: 0.006 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
-                    0.6205,
+                    0.7474,
                     start=self._wrist_joint_center(m, bio, "R"),
                     end=point_on_vector(1 / 0.75, start=self._wrist_joint_center(m, bio, "R"), end=m[f"RFT3"]),
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
                     mass=0.006 * self.body_mass,
-                    coef=(0.223, 0.223, 0),
+                    coef=(0.25,0.25,0.16),
                     start=self._wrist_joint_center(m, bio, "R"),
                     end=m[f"RFT3"],
                 ),
@@ -389,13 +393,13 @@ class SimplePluginGait(BiomechanicalModel):
                 )
             ),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.028 * self.body_mass,
+                mass=lambda m, bio: 0.0271 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
                     0.564, start=self._humerus_joint_center(m, bio, "L"), end=self._elbow_joint_center(m, bio, "L")
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.028 * self.body_mass,
-                    coef=(0.322, 0.322, 0),
+                    mass=0.0271 * self.body_mass,
+                    coef=(0.33,0.33,0.2),
                     start=self._humerus_joint_center(m, bio, "L"),
                     end=self._elbow_joint_center(m, bio, "L"),
                 ),
@@ -430,13 +434,13 @@ class SimplePluginGait(BiomechanicalModel):
                 )
             ),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.016 * self.body_mass,
+                mass=lambda m, bio: 0.0162 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
-                    0.57, start=self._elbow_joint_center(m, bio, "L"), end=self._wrist_joint_center(m, bio, "L")
+                    0.4559, start=self._elbow_joint_center(m, bio, "L"), end=self._wrist_joint_center(m, bio, "L")
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.016 * self.body_mass,
-                    coef=(0.303, 0.303, 0),
+                    mass=0.0162 * self.body_mass,
+                    coef=(0.28,0.28,0.16),
                     start=self._elbow_joint_center(m, bio, "L"),
                     end=self._wrist_joint_center(m, bio, "L"),
                 ),
@@ -466,7 +470,7 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
                     mass=0.006 * self.body_mass,
-                    coef=(0.223, 0.223, 0),
+                    coef=(0.25,0.25,0.16),
                     start=self._wrist_joint_center(m, bio, "L"),
                     end=m[f"LFT3"],
                 ),
@@ -494,13 +498,13 @@ class SimplePluginGait(BiomechanicalModel):
                 )
             ),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.1 * self.body_mass,
+                mass=lambda m, bio:  0.142 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
-                    0.567, start=self._hip_joint_center(m, bio, "R"), end=self._knee_joint_center(m, bio, "R")
+                    0.3612, start=self._hip_joint_center(m, bio, "R"), end=self._knee_joint_center(m, bio, "R")
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.1 * self.body_mass,
-                    coef=(0.323, 0.323, 0),
+                    mass=0.142 * self.body_mass,
+                    coef=(0.32, 0.32, 0.16),
                     start=self._hip_joint_center(m, bio, "R"),
                     end=self._knee_joint_center(m, bio, "R"),
                 ),
@@ -532,13 +536,13 @@ class SimplePluginGait(BiomechanicalModel):
                 )
             ),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.0465 * self.body_mass,
+                mass=lambda m, bio: 0.0433 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
-                    0.567, start=self._knee_joint_center(m, bio, "R"), end=self._ankle_joint_center(m, bio, "R")
+                    0.4416, start=self._knee_joint_center(m, bio, "R"), end=self._ankle_joint_center(m, bio, "R")
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.0465 * self.body_mass,
-                    coef=(0.302, 0.302, 0),
+                    mass=0.0433 * self.body_mass,
+                    coef=(0.3, 0.3, 0.2),
                     start=self._knee_joint_center(m, bio, "R"),
                     end=self._ankle_joint_center(m, bio, "R"),
                 ),
@@ -555,19 +559,19 @@ class SimplePluginGait(BiomechanicalModel):
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
                 origin=lambda m, bio: self._ankle_joint_center(m, bio, "R"),
-                first_axis=self._knee_axis("R"),
-                second_axis=Axis(Axis.Name.Z, start="RCAL", end="RTT2"),
-                axis_to_keep=Axis.Name.Z,
+                first_axis=Axis(Axis.Name.Y, start="RLM", end="RSPH"),
+                second_axis=Axis(Axis.Name.Z, start="RTT2", end="RCAL"),
+                axis_to_keep=Axis.Name.Y,
             ),
-            mesh=Mesh(("RTT2", "RMFH5", "RCAL", "RTT2")),
+            mesh=Mesh(("RTT2", "RMFH5", "RLM", "RCAL", "RSPH", "RTT2")),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.0145 * self.body_mass,
+                mass=lambda m, bio: 0.0133 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
-                    0.5, start=self._ankle_joint_center(m, bio, "R"), end=m[f"RTT2"]
+                    0.5, start=m[f"RCAL"], end=m[f"RTT2"]
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.0145 * self.body_mass,
-                    coef=(0.475, 0.475, 0),
+                    mass=0.0133 * self.body_mass,
+                    coef=(0.25, 0.25, 0.15),
                     start=self._ankle_joint_center(m, bio, "R"),
                     end=m[f"RTT2"],
                 ),
@@ -576,6 +580,8 @@ class SimplePluginGait(BiomechanicalModel):
         self["RFoot"].add_marker(Marker("RTT2", is_technical=True, is_anatomical=True))
         self["RFoot"].add_marker(Marker("RMFH5", is_technical=True, is_anatomical=True))
         self["RFoot"].add_marker(Marker("RCAL", is_technical=True, is_anatomical=True))
+        self["RFoot"].add_marker(Marker("RLM", is_technical=True, is_anatomical=True))
+        self["RFoot"].add_marker(Marker("RSPH", is_technical=True, is_anatomical=True))
 
         self["LFemur"] = Segment(
             parent_name="Pelvis",
@@ -597,13 +603,13 @@ class SimplePluginGait(BiomechanicalModel):
                 )
             ),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.1 * self.body_mass,
+                mass=lambda m, bio: 0.142 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
-                    0.567, start=self._hip_joint_center(m, bio, "L"), end=self._knee_joint_center(m, bio, "L")
+                    0.3612, start=self._hip_joint_center(m, bio, "L"), end=self._knee_joint_center(m, bio, "L")
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.1 * self.body_mass,
-                    coef=(0.323, 0.323, 0),
+                    mass=0.142 * self.body_mass,
+                    coef=(0.32, 0.32, 0.16),
                     start=self._hip_joint_center(m, bio, "L"),
                     end=self._knee_joint_center(m, bio, "L"),
                 ),
@@ -635,13 +641,13 @@ class SimplePluginGait(BiomechanicalModel):
                 )
             ),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.0465 * self.body_mass,
+                mass=lambda m, bio: 0.0433 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
-                    0.567, start=self._knee_joint_center(m, bio, "L"), end=self._ankle_joint_center(m, bio, "L")
+                    0.5, start=self._knee_joint_center(m, bio, "L"), end=self._ankle_joint_center(m, bio, "L")
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.0465 * self.body_mass,
-                    coef=(0.302, 0.302, 0),
+                    mass=0.0433 * self.body_mass,
+                    coef=(0.3, 0.3, 0.2),
                     start=self._knee_joint_center(m, bio, "L"),
                     end=self._ankle_joint_center(m, bio, "L"),
                 ),
@@ -658,19 +664,19 @@ class SimplePluginGait(BiomechanicalModel):
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
                 origin=lambda m, bio: self._ankle_joint_center(m, bio, "L"),
-                first_axis=self._knee_axis("L"),
-                second_axis=Axis(Axis.Name.Z, start="LCAL", end="LTT2"),
-                axis_to_keep=Axis.Name.Z,
+                first_axis=Axis(Axis.Name.Y, start="LSPH", end="LLM"),
+                second_axis=Axis(Axis.Name.Z, start="LTT2", end="LCAL"),
+                axis_to_keep=Axis.Name.Y,
             ),
-            mesh=Mesh(("LTT2", "LMFH5", "LCAL", "LTT2")),
+            mesh=Mesh(("LTT2", "LMFH5", "LLM", "LCAL", "LSPH", "LTT2")),
             inertia_parameters=InertiaParameters(
-                mass=lambda m, bio: 0.0145 * self.body_mass,
+                mass=lambda m, bio: 0.0133 * self.body_mass,
                 center_of_mass=lambda m, bio: point_on_vector(
-                    0.5, start=self._ankle_joint_center(m, bio, "L"), end=m[f"LTT2"]
+                    0.4014, start=m[f"LCAL"], end=m[f"LTT2"]
                 ),
                 inertia=lambda m, bio: InertiaParameters.radii_of_gyration_to_inertia(
-                    mass=0.0145 * self.body_mass,
-                    coef=(0.475, 0.475, 0),
+                    mass=0.0133 * self.body_mass,
+                    coef=(0.25, 0.25, 0.15),
                     start=self._ankle_joint_center(m, bio, "L"),
                     end=m[f"LTT2"],
                 ),
@@ -679,6 +685,8 @@ class SimplePluginGait(BiomechanicalModel):
         self["LFoot"].add_marker(Marker("LTT2", is_technical=True, is_anatomical=True))
         self["LFoot"].add_marker(Marker("LMFH5", is_technical=True, is_anatomical=True))
         self["LFoot"].add_marker(Marker("LCAL", is_technical=True, is_anatomical=True))
+        self["LFoot"].add_marker(Marker("LLM", is_technical=True, is_anatomical=True))
+        self["LFoot"].add_marker(Marker("LSPH", is_technical=True, is_anatomical=True))
 
     def _lumbar_5(self, m, bio):
         right_hip = self._hip_joint_center(m, bio, "R")
@@ -867,7 +875,22 @@ class SimplePluginGait(BiomechanicalModel):
         side
             If the markers are from the right ("R") or left ("L") side
         """
+        """
+               inter_asis = np.nanmean(np.linalg.norm(m["LASIS"][:3, :] - m["RASIS"][:3, :], axis=0))
+               legs_length = self._legs_length(m, bio)
+               mean_legs_length = np.nanmean((legs_length["R"], legs_length["L"]))
+               asis_troc_dist = 0.1288 * legs_length[side] - 0.04856
 
+               c = mean_legs_length * 0.115 - 0.0153
+               aa = inter_asis / 2
+               theta = 0.5
+               beta = 0.314
+               x = c * np.cos(theta) * np.sin(beta) - asis_troc_dist * np.cos(beta)
+               y = -(c * np.sin(theta) - aa)
+               z = -c * np.cos(theta) * np.cos(beta) - asis_troc_dist * np.sin(beta)
+               return m[f"{side}ASIS"] + np.array((x, y, z, 0))[:, np.newaxis]
+
+        """
         inter_asis = np.nanmean(np.linalg.norm(m["LASIS"][:3, :] - m["RASIS"][:3, :], axis=0))
         legs_length = self._legs_length(m, bio)
         PJC = self._pelvis_joint_center(m, bio)
@@ -883,16 +906,10 @@ class SimplePluginGait(BiomechanicalModel):
         x = PJC[0,:] - x
         y = PJC[1,:] + y*dir
         z = PJC[2,:] + z
-        """
-        c = mean_legs_length * 0.115 - 0.0153
-        aa = inter_asis / 2
-        theta = 0.5
-        beta = 0.314
-        x = c * np.cos(theta) * np.sin(beta) - asis_troc_dist * np.cos(beta)
-        y = -(c * np.sin(theta) - aa)
-        z = -c * np.cos(theta) * np.cos(beta) - asis_troc_dist * np.sin(beta)
-        """
         return np.array((x, y, z, m[f"{side}ASIS"][3,:])) #m[f"{side}ASIS"] + (np.array((x, y, z, 0))[:, np.newaxis]/2)
+
+
+
 
     def _knee_axis(self, side) -> Axis:
         """
@@ -949,27 +966,30 @@ class SimplePluginGait(BiomechanicalModel):
         """
 
         # TODO: Some of these values as just copy of their relative
-        return {
-            "LHip": (36, 37, 38),
-            "LKnee": (39, 40, 41),
-            "LAnkle": (42, 43, 44),
-            "RHip": (27, 28, 29),
-            "RKnee": (30, 31, 32),
-            "RAnkle": (33, 34, 35),
-            "LShoulder": (18, 19, 20),
-            "LElbow": (21, 22, 23),
-            "LWrist": (24, 25, 26),
-            "RShoulder": (9, 10, 11),
-            "RElbow": (12, 13, 14),
-            "RWrist": (15, 16, 17),
-            "LNeck": None,
-            "RNeck": None,
-            "LSpine": None,
-            "RSpine": None,
-            "LHead": None,
-            "RHead": None,
-            "LThorax": (6, 7, 8),
-            "RThorax": (6, 7, 8),
-            "LPelvis": (3, 4, 5),
-            "RPelvis": (3, 4, 5),
-        }
+        return {"LHip": (36, 37, 38),
+                "LKnee": (39, 40, 41),
+                "LAnkle": (42, 43, 44),
+                "LAbsAnkle": (42, 43, 44),
+                "LFootProgress": (42, 43, 44),
+                "RHip": (27, 28, 29),
+                "RKnee": (30, 31, 32),
+                "RAnkle": (33, 34, 35),
+                "RAbsAnkle": (33, 34, 35),
+                "RFootProgress": (33, 34, 35),
+                "LShoulder": (18, 19, 20),
+                "LElbow": (21, 22, 23),
+                "LWrist": (24, 25, 26),
+                "RShoulder": (9, 10, 11),
+                "RElbow": (12, 13, 14),
+                "RWrist": (15, 16, 17),
+                "LNeck": None,
+                "RNeck": None,
+                "LSpine": None,
+                "RSpine": None,
+                "LHead": None,
+                "RHead": None,
+                "LThorax": (6, 7, 8),
+                "RThorax": (6, 7, 8),
+                "LPelvis": (3, 4, 5),
+                "RPelvis": (3, 4, 5),
+                }

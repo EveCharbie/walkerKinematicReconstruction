@@ -1,11 +1,11 @@
 from walker import BiomechanicsTools
 
 # --- Options --- #
-data_path = "C:\\Users\\felie\\Downloads\\LAO"
-kinematic_model_file_path = "C:\\Users\\felie\\Downloads\\LAO\\wholebody.bioMod" #"walker/LAO.bioMod"
-static_trial = f"{data_path}\\LAO_01_Statique_2.c3d"
+data_path = "C:\\Users\\felie\\Desktop\\LAO_01\\Venue2\\c3d"
+kinematic_model_file_path = "walker\\LAO.bioMod"
+static_trial = f"{data_path}\\LAO_01_Statique.c3d"
 trials = (
-    f"{data_path}\\LAO_01_Cond0002_02.c3d",
+    f"{data_path}\\LAO_01_Cond0010.c3d",
 )
 
 print(kinematic_model_file_path)

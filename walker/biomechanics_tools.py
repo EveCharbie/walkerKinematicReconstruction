@@ -1,15 +1,15 @@
 import itertools
 import os.path
-
+from scipy.signal import butter, filtfilt, savgol_filter
 import biorbd
 from biorbd.model_creation import C3dData
 import bioviz
 import ezc3d
 import numpy as np
 from scipy import signal
-
 from .misc import differentiate, to_rotation_matrix, to_euler
 from .plugin_gait import SimplePluginGait
+import scipy.io
 
 
 def suffix_to_all(values: tuple[str, ...] | list[str, ...], suffix: str) -> tuple[str, ...]:
@@ -19,7 +19,7 @@ def suffix_to_all(values: tuple[str, ...] | list[str, ...], suffix: str) -> tupl
 class BiomechanicsTools:
     def __init__(self, body_mass: float, include_upper_body: bool = True):
         self.generic_model = SimplePluginGait(body_mass, include_upper_body=True)
-        self.model = None
+        self.model = None #biorbd.Model("C:\\Users\\felie\\PycharmProjects\\walkerKinematicReconstruction\\walker\\49mks.bioMod")
 
         self.is_kinematic_reconstructed: bool = False
         self.is_inverse_dynamic_performed: bool = False
@@ -31,6 +31,9 @@ class BiomechanicsTools:
         self.qddot: np.ndarray = np.ndarray(())
         self.tau: np.ndarray = np.ndarray(())
         self.center_of_mass = np.ndarray(())
+        self.force = np.ndarray(())
+        self.cop = np.ndarray(())
+        self.moment = np.ndarray(())
 
         self.events = None
         self.bioviz_window: bioviz.Viz | None = None
@@ -53,10 +56,27 @@ class BiomechanicsTools:
 
         # Concevoir le filtre Butterworth
         b, a = signal.butter(order, normalized_cutoff, btype='low', analog=False)
-
+        filtered_x=np.zeros([len(data[:, 0]), len(data[0, :])])
         # Appliquer le filtre aux données
-        filtered_x = signal.filtfilt(b, a, data)
+        for axe in range(len(filtered_x)):
+            filtered_x[axe, :] = signal.filtfilt(b, a, data[axe, :])
+        """
+        nyquist_rate = sampling_rate / 2.0
+        normalized_cutoff = 5 / nyquist_rate
+        b, a = signal.butter(order, normalized_cutoff, btype='high', analog=False)
+        filtered_x2 = np.zeros([len(data[:, 0]), len(data[0, :])])
+        # Appliquer le filtre aux données
+        for axe in range(len(filtered_x)):
+            filtered_x2[axe, :] = signal.filtfilt(b, a, filtered_x[axe, :])
+        """
         return filtered_x
+
+    def normalize(self, v):
+        """ Normalize a vector. """
+        norm = np.linalg.norm(v)
+        if norm == 0:
+            return v
+        return v / norm
 
     def personalize_model(self, static_trial: str, model_path: str = "temporary.bioMod"):
         """
@@ -84,7 +104,7 @@ class BiomechanicsTools:
         compute_automatic_events
             If the automatic event finding algorithm should be used. Otherwise, the events in the c3d file are used
         """
-        self.process_kinematics(trial)
+        self.process_kinematics(trial,visualize = False)
         self.inverse_dynamics(trial)
 
         # Write the c3d as if it was the plug in gate output
@@ -111,7 +131,7 @@ class BiomechanicsTools:
         frames = self._select_frames_to_reconstruct(acceptance_threshold=0.7)
         self.reconstruct_kinematics(frames=frames)
         self.unwrap_kinematics()
-        if visualize:
+        if visualize==True:
             self.show_kinematic_reconstruction()
 
     def load_c3d_file(self, trial):
@@ -179,7 +199,8 @@ class BiomechanicsTools:
         n_frames_after = (last_frame_c3d - frames.stop + 1) if frames.stop is not None else 0
         n_frames_total = last_frame_c3d - first_frame_c3d + 1
         self.t, self.q, self.qdot, self.qddot = biorbd.extended_kalman_filter(self.model, self.c3d_path, frames=frames)
-
+        #self.qdot = np.gradient(self.q, axis=0)  # Approximation numérique de la vitesse
+        #self.qddot = np.gradient(self.qdot, axis=0)  # Approximation numérique de l'accélération
         # Align the data with the c3d
         n_q = self.q.shape[0]
         dof_padding_before = np.zeros((n_q, n_frames_before))
@@ -316,56 +337,72 @@ class BiomechanicsTools:
         if not self.is_kinematic_reconstructed:
             raise RuntimeError("The kinematics must be reconstructed before performing the inverse dynamics")
 
-        force_data = self.c3d['data']['platform']
-        points_data = self.c3d['data']['points'][:3, :, :]
-        nbframeMks = points_data.shape[2]
-        nbsegment = self.model.nbSegment()
+        ContactName = ["LFoot", "RFoot"]
+        tau_data = []
+        f_extfilt = np.zeros([len(ContactName), 3, 20 * len(self.q[0, :])])
+        moment_extfilt = np.zeros([len(ContactName), 3, 20 * len(self.q[0, :])])
+        moment_origin = np.zeros([len(ContactName), 3, 20 * len(self.q[0, :])])
+        cop_extfilt = np.zeros([len(ContactName), 3, 20 * len(self.q[0, :])])
+        originPf = np.zeros([len(ContactName), 3, 1])
+        for contact in range(len(ContactName)):
+            f_ext = self.c3d['data']['platform'][contact]['force']
+            f_extfilt[contact, :, :] = self.forcedatafilter(f_ext, 4, 2000, 20)
+            moment_ext = self.c3d['data']['platform'][contact]['moment'] / 1000
+            moment_extfilt[contact, :, :] = self.forcedatafilter(moment_ext, 4, 2000, 20)
+            cop_ext = self.c3d['data']['platform'][contact]['center_of_pressure'] / 1000
+            cop_extfilt[contact, :, :] = self.forcedatafilter(cop_ext, 4, 2000, 10)
+            originPf[contact, 0, 0] = np.mean(self.c3d['data']['platform'][contact]['corners'][0])/1000
+            originPf[contact, 1, 0] = np.mean(self.c3d['data']['platform'][contact]['corners'][1])/1000
+            originPf[contact, 2, 0] = np.mean(self.c3d['data']['platform'][contact]['corners'][2])/1000
 
-        self.externalForce = np.zeros((9, nbsegment, nbframeMks))
+            for ii in range(len(moment_extfilt[contact, 0, :])):
+                r = originPf[contact, : , 0]-cop_extfilt[contact, :, ii]
+                M_offset = np.cross(r, f_extfilt[contact, :, ii])
+                moment_origin[contact, :, ii] = moment_extfilt[contact, :, ii] + M_offset
 
-        components = {
-            'force': slice(0, 3),
-            'moment': slice(3, 6),
-            'center_of_pressure': slice(6, 9),
-        }
+        moment_extfilt = moment_origin
+        #moment_extfilt = np.zeros([len(ContactName), 3, 20 * len(self.q[0, :])])
 
-        Name = ['RFoot', 'LFoot']
+        self.force = np.empty([2, 9, len(self.q[0, :])])
+        PointApplication = np.zeros([2, 3, len(self.q[0, :])])
 
-        for i, platform_data in enumerate(force_data):
-            pos = self.model.getBodyBiorbdId(Name[i])
-            for component, sl in components.items():
-                for ii in range(3):
-                    data = platform_data[component][:, :]
-                    filtered_x = self.forcedatafilter(data[ii, :], 3, 2000, 10)
-                    if sl == 1:
-                        self.externalForce[sl, pos, :] = filtered_x[::20]
-                    else:
-                        self.externalForce[sl, pos, :] = filtered_x[::20]/1000
+        self.q = savgol_filter(self.q, 20, 3)
+        self.qdot = savgol_filter(self.qdot, 20, 3)
+        self.qddot = savgol_filter(self.qddot, 20, 3)
 
-        # Suppose you have already defined external_force and threshold
-        threshold = 1  # Adjust this threshold value as needed
+        """
+        self.q = self.forcedatafilter(self.q, 4, 100, 10)
+        angular_velocity = np.empty_like(self.q)
+        for dof in range(len(self.q[:, 0])):
+            angular_velocity[dof, :] = np.gradient(self.q[dof, :], 1 / 100)
+        self.qdot = self.forcedatafilter(angular_velocity, 4, 100, 10)
 
-        # Loop over segments and frames
-        for jj in range(nbsegment):
-            for ii in range(nbframeMks):
-                # Calculate the norm of the force vector
-                force_norm = np.linalg.norm(self.externalForce[0:3, jj, ii])
-                # Check the condition
-                if force_norm < threshold:
-                    # Set NaN to the entire column if the condition is true
-                    self.externalForce[:, jj, ii] = np.nan
+        angular_acc = np.empty_like(self.q)
+        for dof in range(len(self.q[:, 0])):
+            angular_acc[dof, :] = np.gradient(self.qdot[dof, :], 1 / 100)
+        self.qddot = self.forcedatafilter(angular_acc, 4, 100, 10)
+        """
+        for i in range(len(self.q[0, :])):
+            self.ext_load = self.model.externalForceSet()
 
-        self.tau = np.array(
-            [
-                self.model.InverseDynamics(q, qdot, qddot).to_array()
-                for q, qdot, qddot in zip(self.q.T, self.qdot.T, self.qddot.T)
-            ]
-        ).T
+            for contact in range(len(ContactName)):
+                name = biorbd.String(ContactName[contact])
+                spatial_vector = np.concatenate((moment_extfilt[contact, :, 20 * i], f_extfilt[contact, :, 20 * i]))
+                PointApplication[contact, :, i] = cop_extfilt[contact, :, 20 * i] #self.c3d['data']['platform'][contact]['origin']
+                PA = PointApplication[contact, :, i]
+                if spatial_vector[5]>80:
+                    self.ext_load.add(name, spatial_vector, PA)
+                    self.force[contact, 0:3, i] = PA
+                    self.force[contact, 3:6, i] = f_extfilt[contact, :, 20 * i]
+                    self.force[contact, 6:, i] = moment_extfilt[contact, :, 20 * i]
 
+            tau = self.model.InverseDynamics(self.q[:, i], self.qdot[:, i], self.qddot[:, i], self.ext_load)
+            tau_data.append(tau.to_array())
+
+        tau_data = np.array(tau_data)
+        self.tau = np.transpose(tau_data)
+        #self.tau = self.forcedatafilter(angular_acc, 1, 100, 15)
         self.is_inverse_dynamic_performed = True
-
-        #scipy.io.savemat(f"{path}/{file_name}_processedDyn.mat", self.tau)
-
         return self.tau
 
     def find_feet_events(self) -> tuple[int, tuple[str, ...], tuple[str, ...], np.ndarray]:
@@ -504,8 +541,10 @@ class BiomechanicsTools:
         c3d["parameters"]["POINT"]["RATE"]["value"] = [int(self.c3d["parameters"]["POINT"]["RATE"]["value"][0])]
         c3d.add_parameter("POINT", "ANGLE_UNITS", ["deg"])
         point_names = [name.to_string() for name in self.model.markerNames()]
-        point_names.extend(["CentreOfMass", "CentreOfMassFloor"])
+        point_names.extend(["CentreOfMass", "CentreOfMassFloor", "CoP1", "CoP2","force1","force2","moment1","moment2"])
         point_names.extend(suffix_to_all(tuple(self.generic_model.dof_index.keys()), "Angles"))
+        point_names.extend(suffix_to_all(tuple(self.generic_model.dof_index.keys()), "Vitesse"))
+        point_names.extend(suffix_to_all(tuple(self.generic_model.dof_index.keys()), "Acc"))
         point_names.extend(suffix_to_all(tuple(self.generic_model.dof_index.keys()), "Power"))
         point_names.extend(suffix_to_all(tuple(self.generic_model.dof_index.keys()), "Force"))
         point_names.extend(suffix_to_all(tuple(self.generic_model.dof_index.keys()), "Moment"))
@@ -529,17 +568,39 @@ class BiomechanicsTools:
         data[:3, point_names.index("CentreOfMassFloor"), :] = self.com
         data[2, point_names.index("CentreOfMassFloor"), :] = 0
 
+        data[:3, point_names.index("CoP1"), :] = self.force[0,:3,:]
+        data[:3, point_names.index("CoP2"), :] = self.force[1,:3,:]
+        data[:3, point_names.index("force1"), :] = self.force[0, 3:6, :]
+        data[:3, point_names.index("force2"), :] = self.force[1, 3:6, :]
+        data[:3, point_names.index("moment1"), :] = self.force[0, 6:, :]
+        data[:3, point_names.index("moment2"), :] = self.force[1, 6:, :]
+        """
+        a=data[:3, point_names.index("CoP1"), :]
+        b=data[:3, point_names.index("CoP2"), :]
+        matrix1 =np.expand_dims(a, axis=0)
+        matrix2 = np.expand_dims(b, axis=0)
+        grouped_matrix1 = np.vstack((matrix1, matrix2))
+        a = data[:3, point_names.index("force1"), :]
+        b = data[:3, point_names.index("force2"), :]
+        matrix1 = np.expand_dims(a, axis=0)
+        matrix2 = np.expand_dims(b, axis=0)
+        grouped_matrix2 = np.vstack((matrix1, matrix2))
+        grouped_matrix = np.concatenate((grouped_matrix1 , grouped_matrix2), axis=1)
+        """
         # Dispatch the kinematics and kinematics
         for dof, idx in self.generic_model.dof_index.items():
             if idx is None:
                 continue
             data[:3, point_names.index(f"{dof}Angles"), :] = self.q[idx, :] * 180 / np.pi
+            data[:3, point_names.index(f"{dof}Vitesse"), :] = self.qdot[idx, :]
+            data[:3, point_names.index(f"{dof}Acc"), :] = self.qddot[idx, :]
             data[:3, point_names.index(f"{dof}Moment"), :] = self.tau[idx, :]
             data[:3, point_names.index(f"{dof}Power"), :] = self.tau[idx, :] * self.qdot[idx, :]
         c3d["data"]["points"] = data
 
         self.bioviz_window = bioviz.Viz(loaded_model=self.model)
         self.bioviz_window.load_movement(self.q)
+        self.bioviz_window.load_experimental_forces(self.force[:,:6,:], segments=['Ground', 'Ground'], normalization_ratio=0.5)
         self.bioviz_window.load_experimental_markers(self.c3d_path)
         self.bioviz_window.radio_c3d_editor_model.click()
 
