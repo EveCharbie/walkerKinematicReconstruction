@@ -376,22 +376,28 @@ class BiomechanicsTools:
         self.force = np.empty([2, 9, len(self.q[0, :])])
         PointApplication = np.zeros([2, 3, len(self.q[0, :])])
 
+        # Smoothing position data
         self.q = savgol_filter(self.q, 30, 3)
-        self.qdot = savgol_filter(self.qdot, 30, 3)
-        self.qddot = savgol_filter(self.qddot, 30, 3)
 
-        """
-        self.q = self.forcedatafilter(self.q, 4, 100, 10)
+        # Initialize arrays for angular velocity and acceleration
         angular_velocity = np.empty_like(self.q)
+        angular_acc = np.empty_like(self.q)
+
+        # Calculate angular velocity by taking the gradient of the smoothed position data
         for dof in range(len(self.q[:, 0])):
             angular_velocity[dof, :] = np.gradient(self.q[dof, :], 1 / 100)
+
+        # Apply filtering to the angular velocity data
         self.qdot = self.forcedatafilter(angular_velocity, 4, 100, 10)
 
-        angular_acc = np.empty_like(self.q)
+        # Calculate angular acceleration by taking the gradient of the filtered velocity data
         for dof in range(len(self.q[:, 0])):
             angular_acc[dof, :] = np.gradient(self.qdot[dof, :], 1 / 100)
+
+        # Apply filtering to the angular acceleration data
         self.qddot = self.forcedatafilter(angular_acc, 4, 100, 10)
-        """
+
+
         for i in range(len(self.q[0, :])):
             self.ext_load = self.model.externalForceSet()
 
