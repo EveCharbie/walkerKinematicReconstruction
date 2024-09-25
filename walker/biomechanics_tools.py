@@ -366,7 +366,7 @@ class BiomechanicsTools:
             originPf[contact, 2, 0] = np.mean(self.c3d['data']['platform'][contact]['corners'][2])/1000
 
             for ii in range(len(moment_extfilt[contact, 0, :])):
-                r = originPf[contact, : , 0]-cop_extfilt[contact, :, ii]
+                r = originPf[contact, :, 0]-cop_extfilt[contact, :, ii]
                 M_offset = np.cross(r, f_extfilt[contact, :, ii])
                 moment_origin[contact, :, ii] = moment_extfilt[contact, :, ii] + M_offset
 
