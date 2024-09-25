@@ -195,16 +195,16 @@ class BiomechanicsTools:
 
         first_frame_c3d = self.c3d["header"]["points"]["first_frame"]
         last_frame_c3d = self.c3d["header"]["points"]["last_frame"]
-        n_frames_before = (frames.start - first_frame_c3d) if frames.start is not None else 0
-        n_frames_after = (last_frame_c3d - frames.stop + 1) if frames.stop is not None else 0
+        n_frames_before = 0#(frames.start - first_frame_c3d) if frames.start is not None else 0
+        n_frames_after = 0#(last_frame_c3d - frames.stop + 1) if frames.stop is not None else 0
         n_frames_total = last_frame_c3d - first_frame_c3d + 1
-
+        """
         dofred = np.arange(27,44, 1)
         valuesdof = [0.26, 1.4, 0.35, 0.15, 2.5, 0.35, 0.52, 0.42, 0.52, 0.52,0.26, 1.4, 0.35, 0.15, 2.5, 0.35, 0.52, 0.42, 0.52, 0.52]
         qmax = np.zeros([44])
         for i, dof in enumerate(dofred):
             qmax[dof] = valuesdof[i]  # Mettre à jour la limite maximale pour chaque DoF
-        """
+        
         self.generic_model.setQRangeMin(-qmax)
         self.generic_model.setQRangeMax(qmax)
         # Sauvegarde du modèle mis à jour
@@ -400,7 +400,7 @@ class BiomechanicsTools:
                 spatial_vector = np.concatenate((moment_extfilt[contact, :, 20 * i], f_extfilt[contact, :, 20 * i]))
                 PointApplication[contact, :, i] = cop_extfilt[contact, :, 20 * i] #self.c3d['data']['platform'][contact]['origin']
                 PA = PointApplication[contact, :, i]
-                if spatial_vector[5] > 5 :
+                if spatial_vector[5] > 5:
                     if (PointApplication[contact, 2, i-1] or abs(PA[2]-PointApplication[contact, 2, i-1]) < 0.00001):
                         self.ext_load.add(name, spatial_vector, PA)
                         self.force[contact, 0:3, i] = PA

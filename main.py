@@ -1,7 +1,7 @@
 from walker import BiomechanicsTools
 
 # --- Options --- #
-data_path = "C:\\Users\\felie\\Desktop\\LAO_01\\Venue2\\c3d"
+data_path = "C:\\Users\\felie\\Desktop\\eWalking_ManipFlorian\\LAO_01\\Venue2\\c3d"
 kinematic_model_file_path = "walker\\LAO.bioMod"
 static_trial = f"{data_path}\\LAO_01_Statique.c3d"
 trials = (

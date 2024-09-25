@@ -227,7 +227,7 @@ class SimplePluginGait(BiomechanicalModel):
         self["Thorax"].add_marker(Marker("C7", is_technical=True, is_anatomical=True))
         self["Thorax"].add_marker(Marker("STR", is_technical=True, is_anatomical=True))
         self["Thorax"].add_marker(Marker("SUP", is_technical=True, is_anatomical=True))
-        #self["Thorax"].add_marker(Marker("RBAK", is_technical=True, is_anatomical=False))
+        #self["Thorax"].add_marker(Marker("RBAK", is_technical=True, is_anatomical=True))
 
         self["Head"] = Segment(
             parent_name="Thorax",
@@ -253,11 +253,11 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["Head"].add_marker(Marker("OCC", is_technical=False, is_anatomical=True))
-        self["Head"].add_marker(Marker("LTEMP", is_technical=False, is_anatomical=True))
-        self["Head"].add_marker(Marker("RTEMP", is_technical=False, is_anatomical=True))
-        self["Head"].add_marker(Marker("SEL", is_technical=False, is_anatomical=True))
-        self["Head"].add_marker(Marker("HV", is_technical=False, is_anatomical=True))
+        self["Head"].add_marker(Marker("OCC", is_technical=True, is_anatomical=True))
+        self["Head"].add_marker(Marker("LTEMP", is_technical=True, is_anatomical=True))
+        self["Head"].add_marker(Marker("RTEMP", is_technical=True, is_anatomical=True))
+        self["Head"].add_marker(Marker("SEL", is_technical=True, is_anatomical=True))
+        self["Head"].add_marker(Marker("HV", is_technical=True, is_anatomical=True))
 
         self["RHumerus"] = Segment(
             parent_name="Thorax",
@@ -368,8 +368,8 @@ class SimplePluginGait(BiomechanicalModel):
             ),
         )
         self["RHand"].add_marker(Marker("RFT3", is_technical=True, is_anatomical=True))
-        self["RHand"].add_marker(Marker("RHMH2", is_technical=True, is_anatomical=False))
-        self["RHand"].add_marker(Marker("RHMH5", is_technical=True, is_anatomical=False))
+        self["RHand"].add_marker(Marker("RHMH2", is_technical=True, is_anatomical=True))
+        self["RHand"].add_marker(Marker("RHMH5", is_technical=True, is_anatomical=True))
 
         self["LHumerus"] = Segment(
             parent_name="Thorax",
@@ -479,8 +479,8 @@ class SimplePluginGait(BiomechanicalModel):
             ),
         )
         self["LHand"].add_marker(Marker("LFT3", is_technical=True, is_anatomical=True))
-        self["LHand"].add_marker(Marker("LHMH2", is_technical=True, is_anatomical=False))
-        self["LHand"].add_marker(Marker("LHMH5", is_technical=True, is_anatomical=False))
+        self["LHand"].add_marker(Marker("LHMH2", is_technical=True, is_anatomical=True))
+        self["LHand"].add_marker(Marker("LHMH5", is_technical=True, is_anatomical=True))
 
         self["RFemur"] = Segment(
             parent_name="Pelvis",
@@ -551,7 +551,7 @@ class SimplePluginGait(BiomechanicalModel):
             ),
         )
         self["RTibia"].add_marker(Marker("RLM", is_technical=True, is_anatomical=True))
-        self["RTibia"].add_marker(Marker("RSPH", is_technical=False, is_anatomical=True))
+        self["RTibia"].add_marker(Marker("RSPH", is_technical=True, is_anatomical=True))
         self["RTibia"].add_marker(Marker("RATT", is_technical=True, is_anatomical=True))
 
 
@@ -582,8 +582,8 @@ class SimplePluginGait(BiomechanicalModel):
         self["RFoot"].add_marker(Marker("RMFH5", is_technical=True, is_anatomical=True))
         self["RFoot"].add_marker(Marker("RCAL", is_technical=True, is_anatomical=True))
         #self["RFoot"].add_marker(Marker("RLM", is_technical=True, is_anatomical=True))
-        #self["RFoot"].add_marker(Marker("RSPH", is_technical=True, is_anatomical=False))
-        self["RFoot"].add_marker(Marker("RMFH1", is_technical=False, is_anatomical=True))
+        #self["RFoot"].add_marker(Marker("RSPH", is_technical=True, is_anatomical=True))
+        self["RFoot"].add_marker(Marker("RMFH1", is_technical=True, is_anatomical=True))
 
         self["LFemur"] = Segment(
             parent_name="Pelvis",
@@ -619,7 +619,7 @@ class SimplePluginGait(BiomechanicalModel):
         )
         self["LFemur"].add_marker(Marker("LGT", is_technical=True, is_anatomical=True))
         self["LFemur"].add_marker(Marker("LLFE", is_technical=True, is_anatomical=True))
-        self["LFemur"].add_marker(Marker("LMFE", is_technical=False, is_anatomical=True))
+        self["LFemur"].add_marker(Marker("LMFE", is_technical=True, is_anatomical=True))
 
         self["LTibia"] = Segment(
             parent_name="LFemur",
@@ -653,7 +653,7 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["LTibia"].add_marker(Marker("LLM", is_technical=False, is_anatomical=True))
+        self["LTibia"].add_marker(Marker("LLM", is_technical=True, is_anatomical=True))
         self["LTibia"].add_marker(Marker("LSPH", is_technical=True, is_anatomical=True))
         self["LTibia"].add_marker(Marker("LATT", is_technical=True, is_anatomical=True))
 
@@ -683,9 +683,9 @@ class SimplePluginGait(BiomechanicalModel):
         self["LFoot"].add_marker(Marker("LTT2", is_technical=True, is_anatomical=True))
         self["LFoot"].add_marker(Marker("LMFH5", is_technical=True, is_anatomical=True))
         self["LFoot"].add_marker(Marker("LCAL", is_technical=True, is_anatomical=True))
-        #self["LFoot"].add_marker(Marker("LLM", is_technical=False, is_anatomical=True))
-        #self["LFoot"].add_marker(Marker("LSPH", is_technical=False, is_anatomical=True))
-        self["LFoot"].add_marker(Marker("LMFH1", is_technical=False, is_anatomical=True))
+        #self["LFoot"].add_marker(Marker("LLM", is_technical=True, is_anatomical=True))
+        #self["LFoot"].add_marker(Marker("LSPH", is_technical=True, is_anatomical=True))
+        self["LFoot"].add_marker(Marker("LMFH1", is_technical=True, is_anatomical=True))
 
     def _lumbar_5(self, m, bio):
         right_hip = self._hip_joint_center(m, bio, "R")
