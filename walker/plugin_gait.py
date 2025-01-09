@@ -9,6 +9,7 @@ from biorbd.model_creation import (
     Marker,
     Translations,
     Rotations,
+    Ranges,
 )
 import numpy as np
 import biorbd
@@ -965,6 +966,173 @@ class SimplePluginGait(BiomechanicalModel):
         """
 
         # TODO: Some of these values as just copy of their relative
+        return {"LHip": (36, 37, 38),
+                "LKnee": (39, 40, 41),
+                "LAnkle": (42, 43, 44),
+                "LAbsAnkle": (42, 43, 44),
+                "LFootProgress": (42, 43, 44),
+                "RHip": (27, 28, 29),
+                "RKnee": (30, 31, 32),
+                "RAnkle": (33, 34, 35),
+                "RAbsAnkle": (33, 34, 35),
+                "RFootProgress": (33, 34, 35),
+                "LShoulder": (18, 19, 20),
+                "LElbow": (21, 22, 23),
+                "LWrist": (24, 25, 26),
+                "RShoulder": (9, 10, 11),
+                "RElbow": (12, 13, 14),
+                "RWrist": (15, 16, 17),
+                "LNeck": None,
+                "RNeck": None,
+                "LSpine": None,
+                "RSpine": None,
+                "LHead": None,
+                "RHead": None,
+                "LThorax": (6, 7, 8),
+                "RThorax": (6, 7, 8),
+                "LPelvis": (3, 4, 5),
+                "RPelvis": (3, 4, 5),
+                }
+
+class OCPPluginGait(SimplePluginGait):
+    """
+    This is a modified version of the Plug-in Gait that can be used in optimal control problems.
+    Main differences are:
+    - DoF removed:
+    - Muscles added:
+    - Added ranges of motion for each DoF based on (Maldonado et al., 2018: Whole-body musculo-skeletal model V1)
+    """
+
+    def __init__(
+        self,
+        body_mass: float,
+        shoulder_offset: float = None,
+        elbow_width: float = None,
+        wrist_width: float = None,
+        hand_thickness: float = None,
+        leg_length: dict[str, float] = None,
+        ankle_width: float = None,
+        include_upper_body: bool = True,
+    ):
+        """
+        Parameters
+        ----------
+        body_mass
+            The mass of the full body
+        shoulder_offset
+            The measured shoulder offset of the subject. If None is provided, it is approximated using
+            Rab (2002), A method for determination of upper extremity kinematics
+        elbow_width
+            The measured width of the elbow. If None is provided 115% of the distance between WRA and WRB is used
+        wrist_width
+            The measured width of the wrist. If None is provided, 2cm is used
+        hand_thickness
+            The measured thickness of the hand. If None is provided, 1cm is used
+        leg_length
+            The measured leg length in a dict["R"] or dict["L"]. If None is provided, the 95% of the ASI height is
+            used (therefore assuming the subject is standing upright during the static trial)
+        ankle_width
+            The measured ankle width. If None is provided, the distance between ANK and HEE is used.
+        include_upper_body
+            If the upper body should be included in the reconstruction (set all the technical flag of the upper body
+            marker false if not included)
+
+        Since more markers are used in our version (namely Knee medial and ankle medial), the KJC and AJC were
+        simplified to be the mean of these markers with their respective lateral markers. Hence, 'ankle_width'
+        is no more useful
+        """
+        super(OCPPluginGait, self).__init__(body_mass,
+                                            shoulder_offset,
+                                            elbow_width,
+                                            wrist_width,
+                                            hand_thickness,
+                                            leg_length,
+                                            ankle_width,
+                                            include_upper_body)
+        self._modify_kinematic_model()
+
+
+    def _modify_kinematic_model(self):
+
+        # TODO: Charbie: change the ranges of motion to match the article
+
+        self["Ground"] = Segment()
+
+        self["Pelvis"].add_range(type=Ranges.Q,
+                                 min_bound=[-0.5, -0.5, 0.5, -np.pi/4, -np.pi/4, -np.pi/4],
+                                 max_bound=[0.5, 0.5, 1.5, np.pi/4, np.pi/4, np.pi/4])
+
+        self["Thorax"].rotations = Rotations.NONE
+
+        self["Head"].rotations = Rotations.NONE
+
+        # TODO: Charbie -> Verify the zero position, and modify these values if not anato
+        self["RHumerus"].add_range(type=Ranges.Q,
+                                   min_bound=[-np.pi/4, -np.pi/4, -np.pi/4],
+                                   max_bound=[np.pi/4, np.pi/4, np.pi/4])
+
+        # TODO: Charbie -> check the axis definition for the zx choice
+        self["RRadius"].rotations = Rotations.ZX
+        self["RRadius"].add_range(type=Ranges.Q,
+                                  min_bound=[-np.pi/2, -np.pi/2],
+                                  max_bound=[np.pi/2, np.pi/2])
+
+        self["RHand"].rotations = Rotations.NONE
+
+        # TODO: Charbie -> Verify the zero position, and modify these values if not anato
+        self["LHumerus"].add_range(type=Ranges.Q,
+                                   min_bound=[-np.pi / 4, -np.pi / 4, -np.pi / 4],
+                                   max_bound=[np.pi / 4, np.pi / 4, np.pi / 4])
+
+        # TODO: Charbie -> check the axis definition for the zx choice
+        self["LRadius"].rotations = Rotations.ZX
+        self["LRadius"].add_range(type=Ranges.Q,
+                                  min_bound=[-np.pi / 2, -np.pi / 2],
+                                  max_bound=[np.pi / 2, np.pi / 2])
+
+        self["LHand"].rotations = Rotations.NONE
+
+        # TODO: Charbie -> check the axis definition for the xy choice
+        self["RFemur"].rotations = Rotations.XY
+        self["RFemur"].add_range(type=Ranges.Q,
+                                 min_bound=[-np.pi / 2, -np.pi / 2],
+                                 max_bound=[np.pi / 2, np.pi / 2])
+
+        # TODO: Charbie -> check the axis definition for the x choice
+        self["RTibia"].rotations = Rotations.X
+        self["RTibia"].add_range(type=Ranges.Q,
+                                 min_bound=[-np.pi / 2],
+                                 max_bound=[np.pi / 2])
+
+        self["RFoot"].add_range(type=Ranges.Q,
+                                min_bound=[-np.pi / 4, -np.pi / 4, -np.pi / 4],
+                                max_bound=[np.pi / 4, np.pi / 4, np.pi / 4])
+
+        # TODO: Charbie -> check the axis definition for the xy choice
+        self["LFemur"].rotations = Rotations.XY
+        self["LFemur"].add_range(type=Ranges.Q,
+                                 min_bound=[-np.pi / 2, -np.pi / 2],
+                                 max_bound=[np.pi / 2, np.pi / 2])
+
+        # TODO: Charbie -> check the axis definition for the x choice
+        self["LTibia"].rotations = Rotations.X
+        self["LTibia"].add_range(type=Ranges.Q,
+                                 min_bound=[-np.pi / 2],
+                                 max_bound=[np.pi / 2])
+
+        self["LFoot"].add_range(type=Ranges.Q,
+                                min_bound=[-np.pi / 4, -np.pi / 4, -np.pi / 4],
+                                max_bound=[np.pi / 4, np.pi / 4, np.pi / 4])
+
+
+    @property
+    def dof_index(self) -> dict[str, tuple[int, ...]]:
+        """
+        Returns a dictionary with all the dof to export to the C3D and their corresponding XYZ values in the generalized
+        coordinate vector
+        """
+
+        # TODO: Charbie -> check these
         return {"LHip": (36, 37, 38),
                 "LKnee": (39, 40, 41),
                 "LAnkle": (42, 43, 44),

@@ -3,7 +3,7 @@ import os.path
 from scipy.signal import butter, filtfilt, savgol_filter
 import biorbd
 from biorbd.model_creation import C3dData
-import bioviz
+# import bioviz
 import ezc3d
 import numpy as np
 from scipy import signal
@@ -17,8 +17,8 @@ def suffix_to_all(values: tuple[str, ...] | list[str, ...], suffix: str) -> tupl
 
 
 class BiomechanicsTools:
-    def __init__(self, body_mass: float, include_upper_body: bool = True):
-        self.generic_model = SimplePluginGait(body_mass, include_upper_body=True)
+    def __init__(self, model_type):
+        self.generic_model = model_type
         self.model = None #biorbd.Model("C:\\Users\\felie\\PycharmProjects\\walkerKinematicReconstruction\\walker\\49mks.bioMod")
 
         self.is_kinematic_reconstructed: bool = False
