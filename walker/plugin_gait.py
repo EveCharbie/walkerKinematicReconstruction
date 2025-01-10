@@ -7,6 +7,7 @@ from biorbd.model_creation import (
     Mesh,
     Segment,
     Marker,
+    Contact,
     Translations,
     Rotations,
     Ranges,
@@ -1052,6 +1053,59 @@ class OCPPluginGait(SimplePluginGait):
         self._modify_kinematic_model()
 
 
+    def _get_foot_characteristics(self, m):
+
+        # width = R_FM5 -> R_FM1
+        foot_width_standard = np.linalg.norm(np.array([0.156485, -0.00712829, 0.0638694]) - np.array([0.19973, -0.00594403, -0.0323195]))
+        foot_width_real = (np.linalg.norm(np.nanmean(m["RMFH5"], axis=1) - np.nanmean(m["RMFH1"], axis=1)) + np.linalg.norm(np.nanmean(m["LMFH5"], axis=1) - np.nanmean(m["LMFH1"], axis=1))) / 2
+        foot_width_ratio = foot_width_real / foot_width_standard
+
+        # length = mid(R_FM5, R_FM1) - R_FCC
+        foot_length_standard = np.linalg.norm((np.array([0.156485, -0.00712829, 0.0638694]) + np.array([0.19973, -0.00594403, -0.0323195]))/2 - np.array([0.0054278, 0.00177226, 0.00220395]))
+        foot_length_real = (np.linalg.norm((np.nanmean(m["RMFH5"], axis=1) + np.nanmean(m["RMFH1"], axis=1)) / 2 - np.nanmean(m["RCAL"], axis=1)) + np.linalg.norm((np.nanmean(m["LMFH5"], axis=1) + np.nanmean(m["LMFH1"], axis=1)) / 2 - np.nanmean(m["LCAL"], axis=1))) / 2
+        foot_length_ratio = foot_length_real / foot_length_standard
+
+        # ground position = marker on the treadmill = ankle joint center
+        # TODO: Charbie -> Add the right marker name
+        # ground_height = m["ground"][2]
+        ground_height = 0.0
+        # ankle height is the mean of all the maleolus markers
+        ankle_height = ((np.nanmean(m[f"RSPH"][2, :]) + np.nanmean(m[f"RLM"][2, :]) + np.nanmean(m[f"LSPH"][2, :]) + np.nanmean(m[f"LLM"][:, 2])) / 4)
+        # TODO: Charbie: Add marker_radius
+        marker_radius = 0.01
+        ground_pos = ankle_height - ground_height + marker_radius
+
+        return foot_width_ratio, foot_length_ratio, ground_pos
+
+    def _find_personalized_foot_heel(self, m):
+        _, _, ground_pos = self._get_foot_characteristics(m)
+        Heel_pos = np.array([0, 0, -ground_pos])
+        return Heel_pos
+
+    def _find_personalized_foot_meta1(self, m, side):
+        # TODO: Charbie -> Check the contact definitions : it should not be symetric ! Find a better ref forming a scalar triangle.
+        foot_width_ratio, foot_length_ratio, ground_pos = self._get_foot_characteristics(m)
+        # TODO: Charbie -> Check the signs for each side
+        if side == "R":
+            Meta_1_pos = np.array([-0.0422882 * foot_width_ratio, 0.179793 * foot_length_ratio, -ground_pos])
+        elif side == "L":
+            Meta_1_pos = np.array([-0.0422882 * foot_width_ratio, 0.179793 * foot_length_ratio, -ground_pos])
+        else:
+            raise RuntimeError("The side should be either 'R' or 'L'")
+        return Meta_1_pos
+
+    def _find_personalized_foot_meta5(self, m, side):
+        foot_width_ratio, foot_length_ratio, ground_pos = self._get_foot_characteristics(m)
+        # TODO: Charbie -> Check the signs for each side
+        if side == "R":
+            Meta_5_pos = np.array([0.0422882 * foot_width_ratio, 0.179793 * foot_length_ratio, -ground_pos])
+        elif side == "L":
+            Meta_5_pos = np.array([0.0422882 * foot_width_ratio, 0.179793 * foot_length_ratio, -ground_pos])
+        else:
+            raise RuntimeError("The side should be either 'R' or 'L'")
+        return Meta_5_pos
+
+
     def _modify_kinematic_model(self):
 
         # TODO: Charbie: change the ranges of motion to match the article
@@ -1107,6 +1161,18 @@ class OCPPluginGait(SimplePluginGait):
         self["RFoot"].add_range(type=Ranges.Q,
                                 min_bound=[-np.pi / 4, -np.pi / 4, -np.pi / 4],
                                 max_bound=[np.pi / 4, np.pi / 4, np.pi / 4])
+        self["RFoot"].add_contact(Contact(name="Heel_r",
+                                  parent_name="RFoot",
+                                  function= lambda m : self._find_personalized_foot_heel(m),
+                                  axis=Translations.Z))
+        self["RFoot"].add_contact(Contact(name="Meta_1_r",
+                                  parent_name="RFoot",
+                                  function= lambda m : self._find_personalized_foot_meta1(m, side="R"),
+                                  axis=Translations.Z))
+        self["RFoot"].add_contact(Contact(name="Meta_5_r",
+                                  parent_name="RFoot",
+                                  function= lambda m : self._find_personalized_foot_meta5(m, side="R"),
+                                  axis=Translations.XYZ))
 
         # TODO: Charbie -> check the axis definition for the xy choice
         self["LFemur"].rotations = Rotations.XY
@@ -1123,6 +1189,18 @@ class OCPPluginGait(SimplePluginGait):
         self["LFoot"].add_range(type=Ranges.Q,
                                 min_bound=[-np.pi / 4, -np.pi / 4, -np.pi / 4],
                                 max_bound=[np.pi / 4, np.pi / 4, np.pi / 4])
+        self["LFoot"].add_contact(Contact(name="Heel_l",
+                                  parent_name="LFoot",
+                                  function= lambda m : self._find_personalized_foot_heel(m),
+                                  axis=Translations.Z))
+        self["LFoot"].add_contact(Contact(name="Meta_1_l",
+                                  parent_name="LFoot",
+                                  function= lambda m : self._find_personalized_foot_meta1(m, side="L"),
+                                  axis=Translations.Z))
+        self["LFoot"].add_contact(Contact(name="Meta_5_l",
+                                  parent_name="LFoot",
+                                  function= lambda m : self._find_personalized_foot_meta5(m, side="L"),
+                                  axis=Translations.XYZ))
 
 
     @property
