@@ -11,6 +11,9 @@ from biorbd.model_creation import (
     Translations,
     Rotations,
     Ranges,
+    MuscleGroup,
+    Muscle,
+    MuscleType,
 )
 import numpy as np
 import biorbd
@@ -166,9 +169,10 @@ class SimplePluginGait(BiomechanicalModel):
         # Femur: verified
         # Knee: Used mid-point of 'KNM' and 'KNE' as KJC
         # Ankle: As for knee, we have access to a much easier medial marker (ANKM), so it was used instead
-        self["Ground"] = Segment()
+        self.segments["Ground"] = Segment(name="Ground")
 
-        self["Pelvis"] = Segment(
+        self.segments["Pelvis"] = Segment(
+            name="Pelvis",
             parent_name="Ground",
             translations=Translations.XYZ,
             rotations=Rotations.XYZ,
@@ -191,12 +195,13 @@ class SimplePluginGait(BiomechanicalModel):
             ),
         )
         # self.add_marker("Pelvis", "SACR", is_technical=True, is_anatomical=True)
-        self["Pelvis"].add_marker(Marker("LPSIS", is_technical=True, is_anatomical=True))
-        self["Pelvis"].add_marker(Marker("RPSIS", is_technical=True, is_anatomical=True))
-        self["Pelvis"].add_marker(Marker("LASIS", is_technical=True, is_anatomical=True))
-        self["Pelvis"].add_marker(Marker("RASIS", is_technical=True, is_anatomical=True))
+        self.segments["Pelvis"].add_marker(Marker("LPSIS", is_technical=True, is_anatomical=True))
+        self.segments["Pelvis"].add_marker(Marker("RPSIS", is_technical=True, is_anatomical=True))
+        self.segments["Pelvis"].add_marker(Marker("LASIS", is_technical=True, is_anatomical=True))
+        self.segments["Pelvis"].add_marker(Marker("RASIS", is_technical=True, is_anatomical=True))
 
-        self["Thorax"] = Segment(
+        self.segments["Thorax"] = Segment(
+            name="Thorax",
             parent_name="Pelvis",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -225,13 +230,14 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["Thorax"].add_marker(Marker("T10", is_technical=True, is_anatomical=True))
-        self["Thorax"].add_marker(Marker("C7", is_technical=True, is_anatomical=True))
-        self["Thorax"].add_marker(Marker("STR", is_technical=True, is_anatomical=True))
-        self["Thorax"].add_marker(Marker("SUP", is_technical=True, is_anatomical=True))
-        #self["Thorax"].add_marker(Marker("RBAK", is_technical=True, is_anatomical=True))
+        self.segments["Thorax"].add_marker(Marker("T10", is_technical=True, is_anatomical=True))
+        self.segments["Thorax"].add_marker(Marker("C7", is_technical=True, is_anatomical=True))
+        self.segments["Thorax"].add_marker(Marker("STR", is_technical=True, is_anatomical=True))
+        self.segments["Thorax"].add_marker(Marker("SUP", is_technical=True, is_anatomical=True))
+        #self.segments["Thorax"].add_marker(Marker("RBAK", is_technical=True, is_anatomical=True))
 
-        self["Head"] = Segment(
+        self.segments["Head"] = Segment(
+            name="Head",
             parent_name="Thorax",
             segment_coordinate_system=SegmentCoordinateSystem(
                 origin=self._head_joint_center,
@@ -255,13 +261,14 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["Head"].add_marker(Marker("OCC", is_technical=True, is_anatomical=True))
-        self["Head"].add_marker(Marker("LTEMP", is_technical=True, is_anatomical=True))
-        self["Head"].add_marker(Marker("RTEMP", is_technical=True, is_anatomical=True))
-        self["Head"].add_marker(Marker("SEL", is_technical=True, is_anatomical=True))
-        self["Head"].add_marker(Marker("HV", is_technical=True, is_anatomical=True))
+        self.segments["Head"].add_marker(Marker("OCC", is_technical=True, is_anatomical=True))
+        self.segments["Head"].add_marker(Marker("LTEMP", is_technical=True, is_anatomical=True))
+        self.segments["Head"].add_marker(Marker("RTEMP", is_technical=True, is_anatomical=True))
+        self.segments["Head"].add_marker(Marker("SEL", is_technical=True, is_anatomical=True))
+        self.segments["Head"].add_marker(Marker("HV", is_technical=True, is_anatomical=True))
 
-        self["RHumerus"] = Segment(
+        self.segments["RHumerus"] = Segment(
+            name="RHumerus",
             parent_name="Thorax",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -297,11 +304,12 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["RHumerus"].add_marker(Marker("RA", is_technical=True, is_anatomical=True))
-        self["RHumerus"].add_marker(Marker("RLHE", is_technical=True, is_anatomical=True))
-        self["RHumerus"].add_marker(Marker("RMHE", is_technical=True, is_anatomical=True))
+        self.segments["RHumerus"].add_marker(Marker("RA", is_technical=True, is_anatomical=True))
+        self.segments["RHumerus"].add_marker(Marker("RLHE", is_technical=True, is_anatomical=True))
+        self.segments["RHumerus"].add_marker(Marker("RMHE", is_technical=True, is_anatomical=True))
 
-        self["RRadius"] = Segment(
+        self.segments["RRadius"] = Segment(
+            name="RRadius",
             parent_name="RHumerus",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -313,8 +321,8 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
                 second_axis=Axis(
                     Axis.Name.Y,
-                    start=lambda m, bio: bio["RHumerus"].segment_coordinate_system.scs[:, 3, :],
-                    end=lambda m, bio: bio["RHumerus"].segment_coordinate_system.scs[:, 1, :],
+                    start=lambda m, bio: bio.segments["RHumerus"].segment_coordinate_system.scs[:, 3, :],
+                    end=lambda m, bio: bio.segments["RHumerus"].segment_coordinate_system.scs[:, 1, :],
                 ),
                 axis_to_keep=Axis.Name.Z,
             ),
@@ -337,10 +345,11 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["RRadius"].add_marker(Marker("RUS", is_technical=True, is_anatomical=True))
-        self["RRadius"].add_marker(Marker("RRS", is_technical=True, is_anatomical=True))
+        self.segments["RRadius"].add_marker(Marker("RUS", is_technical=True, is_anatomical=True))
+        self.segments["RRadius"].add_marker(Marker("RRS", is_technical=True, is_anatomical=True))
 
-        self["RHand"] = Segment(
+        self.segments["RHand"] = Segment(
+            name="RHand",
             parent_name="RRadius",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -369,11 +378,12 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["RHand"].add_marker(Marker("RFT3", is_technical=True, is_anatomical=True))
-        self["RHand"].add_marker(Marker("RHMH2", is_technical=True, is_anatomical=True))
-        self["RHand"].add_marker(Marker("RHMH5", is_technical=True, is_anatomical=True))
+        self.segments["RHand"].add_marker(Marker("RFT3", is_technical=True, is_anatomical=True))
+        self.segments["RHand"].add_marker(Marker("RHMH2", is_technical=True, is_anatomical=True))
+        self.segments["RHand"].add_marker(Marker("RHMH5", is_technical=True, is_anatomical=True))
 
-        self["LHumerus"] = Segment(
+        self.segments["LHumerus"] = Segment(
+            name="LHumerus",
             parent_name="Thorax",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -409,12 +419,13 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["LHumerus"].add_marker(Marker("LA", is_technical=True, is_anatomical=True))
-        self["LHumerus"].add_marker(Marker("LLHE", is_technical=True, is_anatomical=True))
+        self.segments["LHumerus"].add_marker(Marker("LA", is_technical=True, is_anatomical=True))
+        self.segments["LHumerus"].add_marker(Marker("LLHE", is_technical=True, is_anatomical=True))
         # TODO: Add ELBM to define the axis
-        self["LHumerus"].add_marker(Marker("LMHE", is_technical=True, is_anatomical=True))
+        self.segments["LHumerus"].add_marker(Marker("LMHE", is_technical=True, is_anatomical=True))
 
-        self["LRadius"] = Segment(
+        self.segments["LRadius"] = Segment(
+            name="LRadius",
             parent_name="LHumerus",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -426,8 +437,8 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
                 second_axis=Axis(
                     Axis.Name.Y,
-                    start=lambda m, bio: bio["LHumerus"].segment_coordinate_system.scs[:, 3, :],
-                    end=lambda m, bio: bio["LHumerus"].segment_coordinate_system.scs[:, 1, :],
+                    start=lambda m, bio: bio.segments["LHumerus"].segment_coordinate_system.scs[:, 3, :],
+                    end=lambda m, bio: bio.segments["LHumerus"].segment_coordinate_system.scs[:, 1, :],
                 ),
                 axis_to_keep=Axis.Name.Z,
             ),
@@ -450,10 +461,11 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["LRadius"].add_marker(Marker("LUS", is_technical=True, is_anatomical=True))
-        self["LRadius"].add_marker(Marker("LRS", is_technical=True, is_anatomical=True))
+        self.segments["LRadius"].add_marker(Marker("LUS", is_technical=True, is_anatomical=True))
+        self.segments["LRadius"].add_marker(Marker("LRS", is_technical=True, is_anatomical=True))
 
-        self["LHand"] = Segment(
+        self.segments["LHand"] = Segment(
+            name="LHand",
             parent_name="LRadius",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -480,11 +492,12 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["LHand"].add_marker(Marker("LFT3", is_technical=True, is_anatomical=True))
-        self["LHand"].add_marker(Marker("LHMH2", is_technical=True, is_anatomical=True))
-        self["LHand"].add_marker(Marker("LHMH5", is_technical=True, is_anatomical=True))
+        self.segments["LHand"].add_marker(Marker("LFT3", is_technical=True, is_anatomical=True))
+        self.segments["LHand"].add_marker(Marker("LHMH2", is_technical=True, is_anatomical=True))
+        self.segments["LHand"].add_marker(Marker("LHMH5", is_technical=True, is_anatomical=True))
 
-        self["RFemur"] = Segment(
+        self.segments["RFemur"] = Segment(
+            name="RFemur",
             parent_name="Pelvis",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -516,11 +529,12 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["RFemur"].add_marker(Marker("RGT", is_technical=True, is_anatomical=True))
-        self["RFemur"].add_marker(Marker("RLFE", is_technical=True, is_anatomical=True))
-        self["RFemur"].add_marker(Marker("RMFE", is_technical=True, is_anatomical=True))
+        self.segments["RFemur"].add_marker(Marker("RGT", is_technical=True, is_anatomical=True))
+        self.segments["RFemur"].add_marker(Marker("RLFE", is_technical=True, is_anatomical=True))
+        self.segments["RFemur"].add_marker(Marker("RMFE", is_technical=True, is_anatomical=True))
 
-        self["RTibia"] = Segment(
+        self.segments["RTibia"] = Segment(
+            name="RTibia",
             parent_name="RFemur",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -552,12 +566,13 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["RTibia"].add_marker(Marker("RLM", is_technical=True, is_anatomical=True))
-        self["RTibia"].add_marker(Marker("RSPH", is_technical=True, is_anatomical=True))
-        self["RTibia"].add_marker(Marker("RATT", is_technical=True, is_anatomical=True))
+        self.segments["RTibia"].add_marker(Marker("RLM", is_technical=True, is_anatomical=True))
+        self.segments["RTibia"].add_marker(Marker("RSPH", is_technical=True, is_anatomical=True))
+        self.segments["RTibia"].add_marker(Marker("RATT", is_technical=True, is_anatomical=True))
 
 
-        self["RFoot"] = Segment(
+        self.segments["RFoot"] = Segment(
+            name="RFoot",
             parent_name="RTibia",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -580,14 +595,15 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["RFoot"].add_marker(Marker("RTT2", is_technical=True, is_anatomical=True))
-        self["RFoot"].add_marker(Marker("RMFH5", is_technical=True, is_anatomical=True))
-        self["RFoot"].add_marker(Marker("RCAL", is_technical=True, is_anatomical=True))
-        #self["RFoot"].add_marker(Marker("RLM", is_technical=True, is_anatomical=True))
-        #self["RFoot"].add_marker(Marker("RSPH", is_technical=True, is_anatomical=True))
-        self["RFoot"].add_marker(Marker("RMFH1", is_technical=True, is_anatomical=True))
+        self.segments["RFoot"].add_marker(Marker("RTT2", is_technical=True, is_anatomical=True))
+        self.segments["RFoot"].add_marker(Marker("RMFH5", is_technical=True, is_anatomical=True))
+        self.segments["RFoot"].add_marker(Marker("RCAL", is_technical=True, is_anatomical=True))
+        #self.segments["RFoot"].add_marker(Marker("RLM", is_technical=True, is_anatomical=True))
+        #self.segments["RFoot"].add_marker(Marker("RSPH", is_technical=True, is_anatomical=True))
+        self.segments["RFoot"].add_marker(Marker("RMFH1", is_technical=True, is_anatomical=True))
 
-        self["LFemur"] = Segment(
+        self.segments["LFemur"] = Segment(
+            name="LFemur",
             parent_name="Pelvis",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -619,11 +635,12 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["LFemur"].add_marker(Marker("LGT", is_technical=True, is_anatomical=True))
-        self["LFemur"].add_marker(Marker("LLFE", is_technical=True, is_anatomical=True))
-        self["LFemur"].add_marker(Marker("LMFE", is_technical=True, is_anatomical=True))
+        self.segments["LFemur"].add_marker(Marker("LGT", is_technical=True, is_anatomical=True))
+        self.segments["LFemur"].add_marker(Marker("LLFE", is_technical=True, is_anatomical=True))
+        self.segments["LFemur"].add_marker(Marker("LMFE", is_technical=True, is_anatomical=True))
 
-        self["LTibia"] = Segment(
+        self.segments["LTibia"] = Segment(
+            name="LTibia",
             parent_name="LFemur",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -655,11 +672,12 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["LTibia"].add_marker(Marker("LLM", is_technical=True, is_anatomical=True))
-        self["LTibia"].add_marker(Marker("LSPH", is_technical=True, is_anatomical=True))
-        self["LTibia"].add_marker(Marker("LATT", is_technical=True, is_anatomical=True))
+        self.segments["LTibia"].add_marker(Marker("LLM", is_technical=True, is_anatomical=True))
+        self.segments["LTibia"].add_marker(Marker("LSPH", is_technical=True, is_anatomical=True))
+        self.segments["LTibia"].add_marker(Marker("LATT", is_technical=True, is_anatomical=True))
 
-        self["LFoot"] = Segment(
+        self.segments["LFoot"] = Segment(
+            name="LFoot",
             parent_name="LTibia",
             rotations=Rotations.XYZ,
             segment_coordinate_system=SegmentCoordinateSystem(
@@ -682,12 +700,12 @@ class SimplePluginGait(BiomechanicalModel):
                 ),
             ),
         )
-        self["LFoot"].add_marker(Marker("LTT2", is_technical=True, is_anatomical=True))
-        self["LFoot"].add_marker(Marker("LMFH5", is_technical=True, is_anatomical=True))
-        self["LFoot"].add_marker(Marker("LCAL", is_technical=True, is_anatomical=True))
-        #self["LFoot"].add_marker(Marker("LLM", is_technical=True, is_anatomical=True))
-        #self["LFoot"].add_marker(Marker("LSPH", is_technical=True, is_anatomical=True))
-        self["LFoot"].add_marker(Marker("LMFH1", is_technical=True, is_anatomical=True))
+        self.segments["LFoot"].add_marker(Marker("LTT2", is_technical=True, is_anatomical=True))
+        self.segments["LFoot"].add_marker(Marker("LMFH5", is_technical=True, is_anatomical=True))
+        self.segments["LFoot"].add_marker(Marker("LCAL", is_technical=True, is_anatomical=True))
+        #self.segments["LFoot"].add_marker(Marker("LLM", is_technical=True, is_anatomical=True))
+        #self.segments["LFoot"].add_marker(Marker("LSPH", is_technical=True, is_anatomical=True))
+        self.segments["LFoot"].add_marker(Marker("LMFH1", is_technical=True, is_anatomical=True))
 
     def _lumbar_5(self, m, bio):
         right_hip = self._hip_joint_center(m, bio, "R")
@@ -762,8 +780,8 @@ class SimplePluginGait(BiomechanicalModel):
         The position of the origin of the humerus
         """
 
-        thorax_origin = bio["Thorax"].segment_coordinate_system.scs[:, 3, :]
-        thorax_x_axis = bio["Thorax"].segment_coordinate_system.scs[:, 0, :]
+        thorax_origin = bio.segments["Thorax"].segment_coordinate_system.scs[:, 3, :]
+        thorax_x_axis = bio.segments["Thorax"].segment_coordinate_system.scs[:, 0, :]
         thorax_to_sho_axis = m[f"{side}A"] - thorax_origin
         shoulder_wand = np.cross(thorax_to_sho_axis[:3, :], thorax_x_axis[:3, :], axis=0)
         shoulder_offset = (
@@ -910,8 +928,6 @@ class SimplePluginGait(BiomechanicalModel):
         return np.array((x, y, z, m[f"{side}ASIS"][3,:])) #m[f"{side}ASIS"] + (np.array((x, y, z, 0))[:, np.newaxis]/2)
 
 
-
-
     def _knee_axis(self, side) -> Axis:
         """
         Define the knee axis
@@ -967,250 +983,6 @@ class SimplePluginGait(BiomechanicalModel):
         """
 
         # TODO: Some of these values as just copy of their relative
-        return {"LHip": (36, 37, 38),
-                "LKnee": (39, 40, 41),
-                "LAnkle": (42, 43, 44),
-                "LAbsAnkle": (42, 43, 44),
-                "LFootProgress": (42, 43, 44),
-                "RHip": (27, 28, 29),
-                "RKnee": (30, 31, 32),
-                "RAnkle": (33, 34, 35),
-                "RAbsAnkle": (33, 34, 35),
-                "RFootProgress": (33, 34, 35),
-                "LShoulder": (18, 19, 20),
-                "LElbow": (21, 22, 23),
-                "LWrist": (24, 25, 26),
-                "RShoulder": (9, 10, 11),
-                "RElbow": (12, 13, 14),
-                "RWrist": (15, 16, 17),
-                "LNeck": None,
-                "RNeck": None,
-                "LSpine": None,
-                "RSpine": None,
-                "LHead": None,
-                "RHead": None,
-                "LThorax": (6, 7, 8),
-                "RThorax": (6, 7, 8),
-                "LPelvis": (3, 4, 5),
-                "RPelvis": (3, 4, 5),
-                }
-
-class OCPPluginGait(SimplePluginGait):
-    """
-    This is a modified version of the Plug-in Gait that can be used in optimal control problems.
-    Main differences are:
-    - DoF removed:
-    - Muscles added:
-    - Added ranges of motion for each DoF based on (Maldonado et al., 2018: Whole-body musculo-skeletal model V1)
-    """
-
-    def __init__(
-        self,
-        body_mass: float,
-        shoulder_offset: float = None,
-        elbow_width: float = None,
-        wrist_width: float = None,
-        hand_thickness: float = None,
-        leg_length: dict[str, float] = None,
-        ankle_width: float = None,
-        include_upper_body: bool = True,
-    ):
-        """
-        Parameters
-        ----------
-        body_mass
-            The mass of the full body
-        shoulder_offset
-            The measured shoulder offset of the subject. If None is provided, it is approximated using
-            Rab (2002), A method for determination of upper extremity kinematics
-        elbow_width
-            The measured width of the elbow. If None is provided 115% of the distance between WRA and WRB is used
-        wrist_width
-            The measured width of the wrist. If None is provided, 2cm is used
-        hand_thickness
-            The measured thickness of the hand. If None is provided, 1cm is used
-        leg_length
-            The measured leg length in a dict["R"] or dict["L"]. If None is provided, the 95% of the ASI height is
-            used (therefore assuming the subject is standing upright during the static trial)
-        ankle_width
-            The measured ankle width. If None is provided, the distance between ANK and HEE is used.
-        include_upper_body
-            If the upper body should be included in the reconstruction (set all the technical flag of the upper body
-            marker false if not included)
-
-        Since more markers are used in our version (namely Knee medial and ankle medial), the KJC and AJC were
-        simplified to be the mean of these markers with their respective lateral markers. Hence, 'ankle_width'
-        is no more useful
-        """
-        super(OCPPluginGait, self).__init__(body_mass,
-                                            shoulder_offset,
-                                            elbow_width,
-                                            wrist_width,
-                                            hand_thickness,
-                                            leg_length,
-                                            ankle_width,
-                                            include_upper_body)
-        self._modify_kinematic_model()
-
-
-    def _get_foot_characteristics(self, m):
-
-        # width = R_FM5 -> R_FM1
-        foot_width_standard = np.linalg.norm(np.array([0.156485, -0.00712829, 0.0638694]) - np.array([0.19973, -0.00594403, -0.0323195]))
-        foot_width_real = (np.linalg.norm(np.nanmean(m["RMFH5"], axis=1) - np.nanmean(m["RMFH1"], axis=1)) + np.linalg.norm(np.nanmean(m["LMFH5"], axis=1) - np.nanmean(m["LMFH1"], axis=1))) / 2
-        foot_width_ratio = foot_width_real / foot_width_standard
-
-        # length = mid(R_FM5, R_FM1) - R_FCC
-        foot_length_standard = np.linalg.norm((np.array([0.156485, -0.00712829, 0.0638694]) + np.array([0.19973, -0.00594403, -0.0323195]))/2 - np.array([0.0054278, 0.00177226, 0.00220395]))
-        foot_length_real = (np.linalg.norm((np.nanmean(m["RMFH5"], axis=1) + np.nanmean(m["RMFH1"], axis=1)) / 2 - np.nanmean(m["RCAL"], axis=1)) + np.linalg.norm((np.nanmean(m["LMFH5"], axis=1) + np.nanmean(m["LMFH1"], axis=1)) / 2 - np.nanmean(m["LCAL"], axis=1))) / 2
-        foot_length_ratio = foot_length_real / foot_length_standard
-
-        # ground position = marker on the treadmill = ankle joint center
-        # TODO: Charbie -> Add the right marker name
-        # ground_height = m["ground"][2]
-        ground_height = 0.0
-        # ankle height is the mean of all the maleolus markers
-        ankle_height = ((np.nanmean(m[f"RSPH"][2, :]) + np.nanmean(m[f"RLM"][2, :]) + np.nanmean(m[f"LSPH"][2, :]) + np.nanmean(m[f"LLM"][:, 2])) / 4)
-        # TODO: Charbie: Add marker_radius
-        marker_radius = 0.01
-        ground_pos = ankle_height - ground_height + marker_radius
-
-        return foot_width_ratio, foot_length_ratio, ground_pos
-
-    def _find_personalized_foot_heel(self, m):
-        _, _, ground_pos = self._get_foot_characteristics(m)
-        Heel_pos = np.array([0, 0, -ground_pos])
-        return Heel_pos
-
-    def _find_personalized_foot_meta1(self, m, side):
-        # TODO: Charbie -> Check the contact definitions : it should not be symetric ! Find a better ref forming a scalar triangle.
-        foot_width_ratio, foot_length_ratio, ground_pos = self._get_foot_characteristics(m)
-        # TODO: Charbie -> Check the signs for each side
-        if side == "R":
-            Meta_1_pos = np.array([-0.0422882 * foot_width_ratio, 0.179793 * foot_length_ratio, -ground_pos])
-        elif side == "L":
-            Meta_1_pos = np.array([-0.0422882 * foot_width_ratio, 0.179793 * foot_length_ratio, -ground_pos])
-        else:
-            raise RuntimeError("The side should be either 'R' or 'L'")
-        return Meta_1_pos
-
-    def _find_personalized_foot_meta5(self, m, side):
-        foot_width_ratio, foot_length_ratio, ground_pos = self._get_foot_characteristics(m)
-        # TODO: Charbie -> Check the signs for each side
-        if side == "R":
-            Meta_5_pos = np.array([0.0422882 * foot_width_ratio, 0.179793 * foot_length_ratio, -ground_pos])
-        elif side == "L":
-            Meta_5_pos = np.array([0.0422882 * foot_width_ratio, 0.179793 * foot_length_ratio, -ground_pos])
-        else:
-            raise RuntimeError("The side should be either 'R' or 'L'")
-        return Meta_5_pos
-
-
-    def _modify_kinematic_model(self):
-
-        # TODO: Charbie: change the ranges of motion to match the article
-
-        self["Ground"] = Segment()
-
-        self["Pelvis"].add_range(type=Ranges.Q,
-                                 min_bound=[-0.5, -0.5, 0.5, -np.pi/4, -np.pi/4, -np.pi/4],
-                                 max_bound=[0.5, 0.5, 1.5, np.pi/4, np.pi/4, np.pi/4])
-
-        self["Thorax"].rotations = Rotations.NONE
-
-        self["Head"].rotations = Rotations.NONE
-
-        # TODO: Charbie -> Verify the zero position, and modify these values if not anato
-        self["RHumerus"].add_range(type=Ranges.Q,
-                                   min_bound=[-np.pi/4, -np.pi/4, -np.pi/4],
-                                   max_bound=[np.pi/4, np.pi/4, np.pi/4])
-
-        # TODO: Charbie -> check the axis definition for the zx choice
-        self["RRadius"].rotations = Rotations.ZX
-        self["RRadius"].add_range(type=Ranges.Q,
-                                  min_bound=[-np.pi/2, -np.pi/2],
-                                  max_bound=[np.pi/2, np.pi/2])
-
-        self["RHand"].rotations = Rotations.NONE
-
-        # TODO: Charbie -> Verify the zero position, and modify these values if not anato
-        self["LHumerus"].add_range(type=Ranges.Q,
-                                   min_bound=[-np.pi / 4, -np.pi / 4, -np.pi / 4],
-                                   max_bound=[np.pi / 4, np.pi / 4, np.pi / 4])
-
-        # TODO: Charbie -> check the axis definition for the zx choice
-        self["LRadius"].rotations = Rotations.ZX
-        self["LRadius"].add_range(type=Ranges.Q,
-                                  min_bound=[-np.pi / 2, -np.pi / 2],
-                                  max_bound=[np.pi / 2, np.pi / 2])
-
-        self["LHand"].rotations = Rotations.NONE
-
-        # TODO: Charbie -> check the axis definition for the xy choice
-        self["RFemur"].rotations = Rotations.XY
-        self["RFemur"].add_range(type=Ranges.Q,
-                                 min_bound=[-np.pi / 2, -np.pi / 2],
-                                 max_bound=[np.pi / 2, np.pi / 2])
-
-        # TODO: Charbie -> check the axis definition for the x choice
-        self["RTibia"].rotations = Rotations.X
-        self["RTibia"].add_range(type=Ranges.Q,
-                                 min_bound=[-np.pi / 2],
-                                 max_bound=[np.pi / 2])
-
-        self["RFoot"].add_range(type=Ranges.Q,
-                                min_bound=[-np.pi / 4, -np.pi / 4, -np.pi / 4],
-                                max_bound=[np.pi / 4, np.pi / 4, np.pi / 4])
-        self["RFoot"].add_contact(Contact(name="Heel_r",
-                                  parent_name="RFoot",
-                                  function= lambda m : self._find_personalized_foot_heel(m),
-                                  axis=Translations.Z))
-        self["RFoot"].add_contact(Contact(name="Meta_1_r",
-                                  parent_name="RFoot",
-                                  function= lambda m : self._find_personalized_foot_meta1(m, side="R"),
-                                  axis=Translations.Z))
-        self["RFoot"].add_contact(Contact(name="Meta_5_r",
-                                  parent_name="RFoot",
-                                  function= lambda m : self._find_personalized_foot_meta5(m, side="R"),
-                                  axis=Translations.XYZ))
-
-        # TODO: Charbie -> check the axis definition for the xy choice
-        self["LFemur"].rotations = Rotations.XY
-        self["LFemur"].add_range(type=Ranges.Q,
-                                 min_bound=[-np.pi / 2, -np.pi / 2],
-                                 max_bound=[np.pi / 2, np.pi / 2])
-
-        # TODO: Charbie -> check the axis definition for the x choice
-        self["LTibia"].rotations = Rotations.X
-        self["LTibia"].add_range(type=Ranges.Q,
-                                 min_bound=[-np.pi / 2],
-                                 max_bound=[np.pi / 2])
-
-        self["LFoot"].add_range(type=Ranges.Q,
-                                min_bound=[-np.pi / 4, -np.pi / 4, -np.pi / 4],
-                                max_bound=[np.pi / 4, np.pi / 4, np.pi / 4])
-        self["LFoot"].add_contact(Contact(name="Heel_l",
-                                  parent_name="LFoot",
-                                  function= lambda m : self._find_personalized_foot_heel(m),
-                                  axis=Translations.Z))
-        self["LFoot"].add_contact(Contact(name="Meta_1_l",
-                                  parent_name="LFoot",
-                                  function= lambda m : self._find_personalized_foot_meta1(m, side="L"),
-                                  axis=Translations.Z))
-        self["LFoot"].add_contact(Contact(name="Meta_5_l",
-                                  parent_name="LFoot",
-                                  function= lambda m : self._find_personalized_foot_meta5(m, side="L"),
-                                  axis=Translations.XYZ))
-
-
-    @property
-    def dof_index(self) -> dict[str, tuple[int, ...]]:
-        """
-        Returns a dictionary with all the dof to export to the C3D and their corresponding XYZ values in the generalized
-        coordinate vector
-        """
-
-        # TODO: Charbie -> check these
         return {"LHip": (36, 37, 38),
                 "LKnee": (39, 40, 41),
                 "LAnkle": (42, 43, 44),

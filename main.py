@@ -1,5 +1,5 @@
 from walker import BiomechanicsTools
-from walker.plugin_gait import SimplePluginGait, OCPPluginGait
+from walker.OCP_plugin_gait import OCPPluginGait
 
 # --- Options --- #
 participant_name = "VIF_04"
