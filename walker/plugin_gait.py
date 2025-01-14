@@ -111,6 +111,7 @@ class SimplePluginGait(BiomechanicalModel):
 
     def __init__(
         self,
+        name: str,
         body_mass: float,
         shoulder_offset: float = None,
         elbow_width: float = None,
@@ -123,6 +124,8 @@ class SimplePluginGait(BiomechanicalModel):
         """
         Parameters
         ----------
+        name
+            The name of the model/participant
         body_mass
             The mass of the full body
         shoulder_offset
@@ -148,6 +151,7 @@ class SimplePluginGait(BiomechanicalModel):
         is no more useful
         """
         super(SimplePluginGait, self).__init__()
+        self.name = name
         self.body_mass = body_mass
         self.include_upper_body = include_upper_body
         self.shoulder_offset = shoulder_offset

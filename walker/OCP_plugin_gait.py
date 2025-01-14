@@ -8,9 +8,11 @@ from biorbd.model_creation import (
     Muscle,
     MuscleType,
     MuscleStateType,
+    ViaPoint,
 )
 import numpy as np
 import biorbd
+import pandas as pd
 
 from walker.plugin_gait import SimplePluginGait
 
@@ -31,6 +33,7 @@ class OCPPluginGait(SimplePluginGait):
 
     def __init__(
         self,
+        name: str,
         body_mass: float,
         shoulder_offset: float = None,
         elbow_width: float = None,
@@ -43,6 +46,8 @@ class OCPPluginGait(SimplePluginGait):
         """
         Parameters
         ----------
+        name
+            The name of the model/participant
         body_mass
             The mass of the full body
         shoulder_offset
@@ -67,7 +72,8 @@ class OCPPluginGait(SimplePluginGait):
         simplified to be the mean of these markers with their respective lateral markers. Hence, 'ankle_width'
         is no more useful
         """
-        super(OCPPluginGait, self).__init__(body_mass,
+        super(OCPPluginGait, self).__init__(name,
+                                            body_mass,
                                             shoulder_offset,
                                             elbow_width,
                                             wrist_width,
@@ -134,7 +140,29 @@ class OCPPluginGait(SimplePluginGait):
             raise RuntimeError("The side should be either 'R' or 'L'")
         return Meta_5_pos
 
-    def _find_personalized_gas_med_origin_position(self, m, side):
+    def _knee_width(self, m):
+        R_FLE = standard_model["markers"]["R_FLE"]
+        R_FME = standard_model["markers"]["R_FME"]
+        # R_FLE - R_FME
+        knee_width_standard = np.linalg.norm(R_FLE - R_FME)
+        # LFE - MFE
+        knee_width_right = np.linalg.norm(np.nanmean(m["RLFE"], axis=1) - np.nanmean(m["RMFE"], axis=1))
+        knee_width_left = np.linalg.norm(np.nanmean(m["LLFE"], axis=1) - np.nanmean(m["LMFE"], axis=1))
+        knee_width_real = (knee_width_right + knee_width_left) / 2
+        return knee_width_standard, knee_width_real
+
+    def _ankle_width(self, m):
+        R_FAL = standard_model["markers"]["R_FAL"]
+        R_TAM = standard_model["markers"]["R_TAM"]
+        # R_FAL - R_TAM
+        ankle_width_standard = np.linalg.norm(R_FAL - R_TAM)
+        # SPH - LM
+        ankle_width_right = np.linalg.norm(np.nanmean(m["RSPH"], axis=1) - np.nanmean(m["RLM"], axis=1))
+        ankle_width_left = np.linalg.norm(np.nanmean(m["LSPH"], axis=1) - np.nanmean(m["LLM"], axis=1))
+        ankle_width_real = (ankle_width_right + ankle_width_left) / 2
+        return ankle_width_standard, ankle_width_real
+
+    def _femur_length(self, m):
         # R_FTC - Knee joint (R_FLE + R_FME) / 2
         R_FTC = standard_model["markers"]["R_FTC"]
         R_FLE = standard_model["markers"]["R_FLE"]
@@ -142,37 +170,17 @@ class OCPPluginGait(SimplePluginGait):
         knee_position_standard = (R_FLE + R_FME) / 2
         femur_length_standard = np.linalg.norm(knee_position_standard - R_FTC)
         # (LFE + MFE) / 2 - GT
-        femur_length_right = np.linalg.norm((np.nanmean(m["RLFE"][2, :], axis=1)
-                                            + np.nanmean(m["RMFE"][2, :], axis=1)) / 2
-                                            - np.nanmean(m["RGT"][2, :], axis=1))
-        femur_length_left = np.linalg.norm((np.nanmean(m["LLFE"][2, :], axis=1)
-                                            + np.nanmean(m["LMFE"][2, :], axis=1)) / 2
-                                            - np.nanmean(m["LGT"][2, :], axis=1))
+        femur_length_right = np.linalg.norm((np.nanmean(m["RLFE"][:3, :], axis=1)
+                                            + np.nanmean(m["RMFE"][:3, :], axis=1)) / 2
+                                            - np.nanmean(m["RGT"][:3, :], axis=1))
+        femur_length_left = np.linalg.norm((np.nanmean(m["LLFE"][:3, :], axis=1)
+                                            + np.nanmean(m["LMFE"][:3, :], axis=1)) / 2
+                                            - np.nanmean(m["LGT"][:3, :], axis=1))
         femur_length_real = (femur_length_right + femur_length_left) / 2
+        return femur_length_standard, femur_length_real
 
-        # R_FLE - R_FME
-        femur_width_standard = np.linalg.norm(R_FLE - R_FME)
-        # LFE - MFE
-        femur_width_right = np.linalg.norm(np.nanmean(m["RLFE"], axis=1) - np.nanmean(m["RMFE"], axis=1))
-        femur_width_left = np.linalg.norm(np.nanmean(m["LLFE"], axis=1) - np.nanmean(m["LMFE"], axis=1))
-        femur_width_real = (femur_width_right + femur_width_left) / 2
 
-        if side == "R":
-            gas_med_origin_standard = np.array([-0.011579, -0.35823, -0.027804])
-            gas_med_ratios = np.array([femur_width_real / femur_width_standard,
-                                       femur_width_real / femur_width_standard,
-                                       femur_length_real / femur_length_standard])
-        elif side == "L":
-            gas_med_origin_standard = np.array([0.011579, -0.35823, -0.027804])
-            gas_med_ratios = np.array([femur_width_real / femur_width_standard,
-                                       femur_width_real / femur_width_standard,
-                                       femur_length_real / femur_length_standard])
-        else:
-            raise RuntimeError("The side should be either 'R' or 'L'")
-
-        return gas_med_ratios * gas_med_origin_standard
-
-    def _find_personalized_gas_med_insertion_position(self, m, side):
+    def _tibia_length(self, m):
         # Knee joint (R_FLE + R_FME) / 2 - Ankle joint (R_FAL + R_TAM) / 2
         R_FLE = standard_model["markers"]["R_FLE"]
         R_FME = standard_model["markers"]["R_FME"]
@@ -183,19 +191,96 @@ class OCPPluginGait(SimplePluginGait):
         tibia_length_standard = np.linalg.norm(knee_position_standard - ankle_position_standard)
 
         # (LFE + MFE) / 2 - (SPH + LM) / 2
-        knee_position_right = (np.nanmean(m["RLFE"][2, :], axis=1)
-                                + np.nanmean(m["RMFE"][2, :], axis=1)) / 2
-        knee_position_left = (np.nanmean(m["LLFE"][2, :], axis=1)
-                                + np.nanmean(m["LMFE"][2, :], axis=1)) / 2
-        ankle_position_right = (np.nanmean(m["RSPH"][2, :], axis=1)
-                                + np.nanmean(m["RLM"][2, :], axis=1)) / 2
+        knee_position_right = (np.nanmean(m["RLFE"][:3, :], axis=1)
+                                + np.nanmean(m["RMFE"][:3, :], axis=1)) / 2
+        knee_position_left = (np.nanmean(m["LLFE"][:3, :], axis=1)
+                                + np.nanmean(m["LMFE"][:3, :], axis=1)) / 2
+        ankle_position_right = (np.nanmean(m["RSPH"][:3, :], axis=1)
+                                + np.nanmean(m["RLM"][:3, :], axis=1)) / 2
+        ankle_position_left = (np.nanmean(m["LSPH"][:3, :], axis=1)
+                                + np.nanmean(m["LLM"][:3, :], axis=1)) / 2
+        tibia_length_real = (np.linalg.norm(knee_position_right - ankle_position_right)
+                            + np.linalg.norm(knee_position_left - ankle_position_left)) / 2
+        return tibia_length_standard, tibia_length_real
 
 
-        # R_FLE - R_FME
-        femur_width_standard = np.linalg.norm(R_FLE - R_FME)
-        gas_med_origin_standard = np.array([-0.011579, -0.35823, -0.027804])
-        gas_med_origin =
-        return gas_med_origin
+    def _find_personalized_gas_med_origin_position(self, m, side):
+        knee_width_standard, knee_width_real = self._knee_width(m)
+        femur_length_standard, femur_length_real = self._femur_length(m)
+
+        if side == "R":
+            gas_med_origin_standard = np.array([-0.011579, -0.35823, -0.027804])
+        elif side == "L":
+            gas_med_origin_standard = np.array([0.011579, -0.35823, -0.027804])
+        else:
+            raise RuntimeError("The side should be either 'R' or 'L'")
+        gas_med_ratios = np.array([knee_width_real / knee_width_standard,
+                                   knee_width_real / knee_width_standard,
+                                   femur_length_real / femur_length_standard])
+
+        return gas_med_ratios * gas_med_origin_standard
+
+    def _find_personalized_gas_med_insertion_position(self, m, side):
+        ankle_width_standard, ankle_width_real = self._ankle_width(m)
+        tibia_length_standard, tibia_length_real = self._tibia_length(m)
+
+        gas_med_ratios = np.array([ankle_width_real / ankle_width_standard,
+                                      ankle_width_real / ankle_width_standard,
+                                      tibia_length_real / tibia_length_standard])
+
+        if side == "R":
+            gas_med_insertion_standard = np.array([0.0033495, 0.03194, -0.0063202])
+        elif side == "L":
+            gas_med_insertion_standard = np.array([-0.0033495, 0.03194, -0.0063202])
+        else:
+            raise RuntimeError("The side should be either 'R' or 'L'")
+        return gas_med_ratios * gas_med_insertion_standard
+
+    def _find_personalized_gas_med_via_point_position(self, m, side):
+        knee_width_standard, knee_width_real = self._knee_width(m)
+        ankle_width_standard, ankle_width_real = self._ankle_width(m)
+        tibia_length_standard, tibia_length_real = self._tibia_length(m)
+        gas_med_via_point_ratios = np.array([(ankle_width_real / ankle_width_standard + knee_width_real / knee_width_standard) / 2,
+                                   (ankle_width_real / ankle_width_standard + knee_width_real / knee_width_standard) / 2,
+                                   tibia_length_real / tibia_length_standard])
+        if side == "R":
+            gas_med_via_point_standard = np.array([-0.021594 -0.048462 -0.029356])
+        elif side == "L":
+            gas_med_via_point_standard = np.array([0.021594 -0.048462 -0.029356])
+        else:
+            raise RuntimeError("The side should be either 'R' or 'L'")
+        return gas_med_via_point_ratios * gas_med_via_point_standard
+
+
+    def _find_personalized_gas_med_tendon_slack_length(self, model, m):
+        csv = pd.read_csv(f"data/Sujet_{self.name}.csv")
+        MTJ_index = np.where(np.array(csv)[:, 0] == "MTJ")[0][0]
+        gas_med_tendon_slack_length = float(np.array(csv)[MTJ_index, 1]) * 0.01
+        return gas_med_tendon_slack_length
+
+    def _find_personalized_gas_med_optimal_length(self, model, m):
+        origin_position_in_femur_right = self._find_personalized_gas_med_origin_position(m, "R")
+        scs_femur_right = model.segments["RFemur"].segment_coordinate_system.mean_scs
+        origin_position_in_global_right = scs_femur_right @ np.hstack((origin_position_in_femur_right, 1))
+
+        insertion_position_in_foot_right = self._find_personalized_gas_med_insertion_position(m, "R")
+        scs_foot_right = model.segments["RFoot"].segment_coordinate_system.mean_scs
+        insertion_position_in_global_right = scs_foot_right @ np.hstack((insertion_position_in_foot_right, 1))
+
+        via_point_position_in_tibia_right = self._find_personalized_gas_med_via_point_position(m, "R")
+        scs_tibia_right = model.segments["RTibia"].segment_coordinate_system.mean_scs
+        via_point_position_in_global_right = scs_tibia_right @ np.hstack((via_point_position_in_tibia_right, 1))
+
+        length_right = np.linalg.norm(origin_position_in_global_right[:3] - insertion_position_in_global_right[:3]) + np.linalg.norm(via_point_position_in_global_right[:3] - insertion_position_in_global_right[:3])
+        length_standard = np.linalg.norm(standard_model["markers"]["gas_med_r_origin"] - standard_model["markers"]["gas_med_r_via_point"]) + np.linalg.norm(standard_model["markers"]["gas_med_r_via_point"] - standard_model["markers"]["gas_med_r_insertion"])
+        optimal_length_standard = 0.044721
+
+        return length_right / length_standard * optimal_length_standard
+
+
+    def _find_personalized_gas_med_pennation_angle(self, model, m, side):
+        raise RuntimeError("Please see the dev ;p")
+
 
     def _modify_kinematic_model(self):
 
@@ -203,7 +288,7 @@ class OCPPluginGait(SimplePluginGait):
 
         self.segments["Ground"] = Segment(name="Ground")
 
-        self.segments["Pelvis"].add_range(type=Ranges.Q,
+        self.segments["Pelvis"].add_range(range_type=Ranges.Q,
                                  min_bound=[-0.5, -0.5, 0.5, -np.pi/4, -np.pi/4, -np.pi/4],
                                  max_bound=[0.5, 0.5, 1.5, np.pi/4, np.pi/4, np.pi/4])
 
@@ -212,26 +297,26 @@ class OCPPluginGait(SimplePluginGait):
         self.segments["Head"].rotations = Rotations.NONE
 
         # TODO: Charbie -> Verify the zero position, and modify these values if not anato
-        self.segments["RHumerus"].add_range(type=Ranges.Q,
+        self.segments["RHumerus"].add_range(range_type=Ranges.Q,
                                    min_bound=[-np.pi/4, -np.pi/4, -np.pi/4],
                                    max_bound=[np.pi/4, np.pi/4, np.pi/4])
 
         # TODO: Charbie -> check the axis definition for the zx choice
         self.segments["RRadius"].rotations = Rotations.ZX
-        self.segments["RRadius"].add_range(type=Ranges.Q,
+        self.segments["RRadius"].add_range(range_type=Ranges.Q,
                                   min_bound=[-np.pi/2, -np.pi/2],
                                   max_bound=[np.pi/2, np.pi/2])
 
         self.segments["RHand"].rotations = Rotations.NONE
 
         # TODO: Charbie -> Verify the zero position, and modify these values if not anato
-        self.segments["LHumerus"].add_range(type=Ranges.Q,
+        self.segments["LHumerus"].add_range(range_type=Ranges.Q,
                                    min_bound=[-np.pi / 4, -np.pi / 4, -np.pi / 4],
                                    max_bound=[np.pi / 4, np.pi / 4, np.pi / 4])
 
         # TODO: Charbie -> check the axis definition for the zx choice
         self.segments["LRadius"].rotations = Rotations.ZX
-        self.segments["LRadius"].add_range(type=Ranges.Q,
+        self.segments["LRadius"].add_range(range_type=Ranges.Q,
                                   min_bound=[-np.pi / 2, -np.pi / 2],
                                   max_bound=[np.pi / 2, np.pi / 2])
 
@@ -239,17 +324,17 @@ class OCPPluginGait(SimplePluginGait):
 
         # TODO: Charbie -> check the axis definition for the xy choice
         self.segments["RFemur"].rotations = Rotations.XY
-        self.segments["RFemur"].add_range(type=Ranges.Q,
+        self.segments["RFemur"].add_range(range_type=Ranges.Q,
                                  min_bound=[-np.pi / 2, -np.pi / 2],
                                  max_bound=[np.pi / 2, np.pi / 2])
 
         # TODO: Charbie -> check the axis definition for the x choice
         self.segments["RTibia"].rotations = Rotations.X
-        self.segments["RTibia"].add_range(type=Ranges.Q,
+        self.segments["RTibia"].add_range(range_type=Ranges.Q,
                                  min_bound=[-np.pi / 2],
                                  max_bound=[np.pi / 2])
 
-        self.segments["RFoot"].add_range(type=Ranges.Q,
+        self.segments["RFoot"].add_range(range_type=Ranges.Q,
                                 min_bound=[-np.pi / 4, -np.pi / 4, -np.pi / 4],
                                 max_bound=[np.pi / 4, np.pi / 4, np.pi / 4])
         self.segments["RFoot"].add_contact(Contact(name="Heel_r",
@@ -267,17 +352,17 @@ class OCPPluginGait(SimplePluginGait):
 
         # TODO: Charbie -> check the axis definition for the xy choice
         self.segments["LFemur"].rotations = Rotations.XY
-        self.segments["LFemur"].add_range(type=Ranges.Q,
+        self.segments["LFemur"].add_range(range_type=Ranges.Q,
                                  min_bound=[-np.pi / 2, -np.pi / 2],
                                  max_bound=[np.pi / 2, np.pi / 2])
 
         # TODO: Charbie -> check the axis definition for the x choice
         self.segments["LTibia"].rotations = Rotations.X
-        self.segments["LTibia"].add_range(type=Ranges.Q,
+        self.segments["LTibia"].add_range(range_type=Ranges.Q,
                                  min_bound=[-np.pi / 2],
                                  max_bound=[np.pi / 2])
 
-        self.segments["LFoot"].add_range(type=Ranges.Q,
+        self.segments["LFoot"].add_range(range_type=Ranges.Q,
                                 min_bound=[-np.pi / 4, -np.pi / 4, -np.pi / 4],
                                 max_bound=[np.pi / 4, np.pi / 4, np.pi / 4])
         self.segments["LFoot"].add_contact(Contact(name="Heel_l",
@@ -347,13 +432,35 @@ class OCPPluginGait(SimplePluginGait):
 
         # Muscles
         self.muscles["RGas_med"] = Muscle(name="RGas_med",
-                                            type=MuscleType.HILLTHELEN,
+                                            muscle_type=MuscleType.HILLTHELEN,
                                             state_type=MuscleStateType.DEGROOTE,
                                             muscle_group="RFemur_Foot",
                                             origin_position_function=lambda m: self._find_personalized_gas_med_origin_position(m, side="R"),
                                             insertion_position_function=lambda m: self._find_personalized_gas_med_insertion_position(m, side="R"),
-                                            optimal_length_function=lambda m: self._find_personalized_gas_med_optimal_length(m, side="R"),
-                                            maximal_force_function=100,  # Hard coded since this value should really not be reached during walking
-                                            tendon_slack_length_function=lambda m: self._find_personalized_gas_med_tendon_slack_length(m, side="R"),
-                                            pennation_angle_function=lambda m: self._find_personalized_gas_med_pennation_angle(m, side="R")
+                                            optimal_length_function=lambda model, m: self._find_personalized_gas_med_optimal_length(model, m),
+                                            maximal_force_function=lambda m: 1600.0,  # Hard coded since this value should really not be reached during walking (but still taken from Moissenet et al. 2019)
+                                            tendon_slack_length_function=lambda model, m: 0.40547,  # self._find_personalized_gas_med_tendon_slack_length(model, m),
+                                            pennation_angle_function=lambda model, m: 0.29671,  # self._find_personalized_gas_med_pennation_angle(model, m, side="R")
                                           )
+        self.via_points["gas_med_r"] = ViaPoint(name="gas_med_r",
+                                                position_function=lambda m: self._find_personalized_gas_med_via_point_position(m, side="R"),
+                                                parent_name="RTibia",
+                                                muscle_name="RGas_med",
+                                                muscle_group="RFemur_Foot")
+
+        self.muscles["RGas_lat"] = Muscle(name="RGas_lat",
+                                            muscle_type=MuscleType.HILLTHELEN,
+                                            state_type=MuscleStateType.DEGROOTE,
+                                            muscle_group="RFemur_Foot",
+                                            origin_position_function=lambda m: self._find_personalized_gas_lat_origin_position(m, side="R"),
+                                            insertion_position_function=lambda m: self._find_personalized_gas_lat_insertion_position(m, side="R"),
+                                            optimal_length_function=lambda model, m: self._find_personalized_gas_lat_optimal_length(model, m),
+                                            maximal_force_function=lambda m: 700.0,  # Hard coded since this value should really not be reached during walking (but still taken from Moissenet et al. 2019)
+                                            tendon_slack_length_function=lambda model, m: 0.38349,
+                                            pennation_angle_function=lambda model, m: 0.13963,
+                                          )
+        self.via_points["gas_lat_r"] = ViaPoint(name="gas_lat_r",
+                                                position_function=lambda m: self._find_personalized_gas_lat_via_point_position(m, side="R"),
+                                                parent_name="RTibia",
+                                                muscle_name="RGas_lat",
+                                                muscle_group="RFemur_Foot")

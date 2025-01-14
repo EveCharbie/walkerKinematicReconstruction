@@ -19,30 +19,8 @@ trials = [
 def main():
     print(kinematic_model_file_path)
 
-    # import bioviz
-    # b = bioviz.Viz("/home/charbie/Documents/Programmation/walkerKinematicReconstruction/data/VIF_04.bioMod")
-    # b.exec()
-
-
-    # from pyorerun import BiorbdModel, PhaseRerun
-    # import numpy as np
-    #
-    # nb_frames = 10
-    # nb_seconds = 0.1
-    # t_span = np.linspace(0, nb_seconds, nb_frames)
-    #
-    # model = BiorbdModel("/home/charbie/Documents/Programmation/walkerKinematicReconstruction/data/VIF_04.bioMod")
-    # # model = BiorbdModel("/home/charbie/Documents/Programmation/VisionOCP/models/SoMe_42.bioMod")
-    # q = np.zeros((model.model.nbQ(), nb_frames))
-    #
-    # viz = PhaseRerun(t_span)
-    # viz.add_animated_model(model, q)
-    # viz.rerun("msk_model")
-
-
-
     # Generate the personalized kinematic model
-    tools = BiomechanicsTools(OCPPluginGait(body_mass=body_mass, include_upper_body=True))
+    tools = BiomechanicsTools(OCPPluginGait(name=participant_name, body_mass=body_mass, include_upper_body=True))
     tools.personalize_model(static_trial, kinematic_model_file_path)
 
     # Perform some biomechanical computation
